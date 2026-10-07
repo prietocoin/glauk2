@@ -12,8 +12,18 @@ export function createDirectorioState() {
   return {
     directorio: [],
     socios: [],
+    busquedaDirectorio: '',
     socioConfigEdit: null,
     modalConfigSocioAbierto: false,
+
+    get directorioFiltrado() {
+      if (!this.busquedaDirectorio) return this.directorio;
+      const q = this.busquedaDirectorio.toLowerCase();
+      return this.directorio.filter(s => 
+        (s.nombre && s.nombre.toLowerCase().includes(q)) ||
+        (s.socio && String(s.socio).toLowerCase().includes(q))
+      );
+    },
 
     async cargarDirectorio() {
       this.directorio = await obtenerDirectorioNormalizado() || [];
