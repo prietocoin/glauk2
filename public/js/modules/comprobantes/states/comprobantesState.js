@@ -26,14 +26,23 @@ export function comprobantesState() {
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
     filtroDesdeHash: '', filtroHastaHash: '', filtroOrden: 'fecha_desc', filtroHash: '',
 
-    // 2. GETTERS COMPUTADOS
+    // 2. GETTERS COMPUTADOS (Transformación reactiva a prueba de fallos)
     get sujetoAuditado() { return !this.filtroSocio ? 'CONSOLIDADO GENERAL' : `SOCIO / ENTIDAD: ${this.filtroSocio}`; },
     get saldoAnterior() { return 0.00; },
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
     
     get comprobantesProcesadosYOrdenados() {
       if (!Array.isArray(this.items) || this.items.length === 0) return [];
-      return this.items.map(item => prepararEdicionComprobante(item, this.loteActivo));
+      return this.items.map(item => {
+        try {
+          return typeof prepararEdicionComprobante === 'function' 
+            ? prepararEdicionComprobante(item, this.loteActivo) 
+            : item;
+        } catch (err) {
+          console.warn('[comprobantesState ⚠️ Fallo al mapear ítem]:', err);
+          return item;
+        }
+      });
     },
 
     get movimientoFiltradoTotal() { 
