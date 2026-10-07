@@ -26,8 +26,12 @@ export function comprobantesState() {
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
     filtroDesdeHash: '', filtroHastaHash: '', filtroOrden: 'fecha_desc', filtroHash: '',
 
-    // 2. GETTERS COMPUTADOS CON FILTRADO ESTRICTO POR SOCIO
-    get sujetoAuditado() { return !this.filtroSocio ? 'CONSOLIDADO GENERAL' : `SOCIO / ENTIDAD: ${this.filtroSocio}`; },
+    // 2. GETTERS COMPUTADOS (FILTRADO EXCLUSIVO EN SOCIO 1 Y SOCIO 2)
+    get sujetoAuditado() { 
+      return (!this.filtroSocio || this.filtroSocio === 'TODOS' || this.filtroSocio === 'TODOS LOS SOCIOS') 
+        ? 'CONSOLIDADO GENERAL' 
+        : `SOCIO / ENTIDAD: ${this.filtroSocio}`; 
+    },
     get saldoAnterior() { return 0.00; },
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
     
@@ -36,17 +40,27 @@ export function comprobantesState() {
 
       const socioBuscado = (this.filtroSocio || '').trim().toUpperCase();
 
-      // Si no hay filtro de socio seleccionado o está en 'TODOS', devuelve toda la lista
+      // Sin filtro seleccionado o 'TODOS': Muestra toda la grilla
       if (!socioBuscado || socioBuscado === 'TODOS' || socioBuscado === 'TODOS LOS SOCIOS') {
         return this.items;
       }
 
-      // Filtrado estricto: Coincidencia de nombre exacto en Socio 1 o Socio 2
+      // Mapeo con el Directorio para considerar alias e hijos por herencia
+      const sociosValidos = new Set([socioBuscado]);
+      if (Array.isArray(this.directorio) && this.directorio.length > 0) {
+        this.directorio.forEach(d => {
+          if (String(d.padre || d.herencia || '').toUpperCase() === socioBuscado || String(d.nombre || '').toUpperCase() === socioBuscado) {
+            if (d.nombre) sociosValidos.add(String(d.nombre).toUpperCase());
+          }
+        });
+      }
+
+      // FILTRADO ESTRICTO: Solo evalúa Socio 1 y Socio 2 (Descarta 100% el Titular Bancario)
       return this.items.filter(item => {
         const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
         const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
 
-        return s1 === socioBuscado || s2 === socioBuscado;
+        return sociosValidos.has(s1) || sociosValidos.has(s2);
       });
     },
 
@@ -60,7 +74,7 @@ export function comprobantesState() {
       });
     },
 
-    // 3. INICIALIZACIÓN SINCRONIZADA
+    // 3. INICIALIZACIÓN
     init() {
       this.$nextTick(() => {
         this.cargarComprobantes();
@@ -71,9 +85,9 @@ export function comprobantesState() {
       this.cargando = true;
       const limpiarFiltro = (val) => (!val || String(val).toUpperCase() === 'TODOS' || String(val).toUpperCase() === 'TODOS LOS SOCIOS') ? '' : val;
 
+      // Traemos los datos sin enviar 'socio' al API para evitar el LIKE '%ADA%' del backend sobre el Titular
       const params = {
         rol: limpiarFiltro(this.filtroRol),
-        socio: limpiarFiltro(this.filtroSocio),
         fechaInicio: this.filtroFechaInicio,
         fechaFin: this.filtroFechaFin,
         desdeHash: limpiarFiltro(this.filtroDesdeHash),
@@ -90,7 +104,7 @@ export function comprobantesState() {
       this.cargando = false;
     },
 
-    // 4. FORMATEADORES
+    // 4. FORMATEADORES ATÓMICOS
     formatMonto: (v) => typeof formatMonto === 'function' ? formatMonto(v || 0) : String(v || 0),
     formatTasa: (v) => typeof formatTasa === 'function' ? formatTasa(v || 1) : String(v || 1),
     obtenerME1: (item) => typeof obtenerME1 === 'function' ? obtenerME1(item) : (item?.me1 || 0),
