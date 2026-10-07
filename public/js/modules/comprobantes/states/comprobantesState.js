@@ -21,7 +21,7 @@ import { prepararEdicionComprobante } from '../services/comprobantesMapperServic
 export function comprobantesState() {
   const state = {
     // 1. PROPIEDADES REACTIVAS Y FILTROS
-    items: [], comprobantes: [], cargando: true, modalAbierto: false, itemEdicion: null,
+    items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
     loteActivo: 'T052',
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
     filtroDesdeHash: '', filtroHastaHash: '', filtroOrden: 'fecha_desc', filtroHash: '',
