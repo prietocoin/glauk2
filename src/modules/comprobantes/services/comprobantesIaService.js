@@ -3,7 +3,7 @@
  * @description Encola la relectura mediante IA en BullMQ y actualiza estado_ia.
  */
 const { Queue } = require('bullmq');
-const db = require('../../../../config/db');
+const db = require('#config/database');
 const redisConfig = require('../../../../config/redis');
 
 const pipelineQueue = new Queue('cola-pipeline', { connection: redisConfig });
