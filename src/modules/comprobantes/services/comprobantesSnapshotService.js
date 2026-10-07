@@ -1,57 +1,11 @@
 /**
  * @file comprobantesSnapshotService.js
- * @description Actualiza comprobantes_raw y congela/recalcula el snapshot en comprobantes_liq.
+ * @description Orquestador de actualización de comprobantes y snapshots automáticos.
  */
 const db = require('../../../../config/db');
-const { obtenerTasaPorId, obtenerUltimasTasas } = require('../../mercado/services/mercadoService');
 const { calcularSnapshotFinanciero } = require('./liquidacionService');
-
-async function liquidarComprobante(payload) {
-  const {
-    hash_largo, socio_1, tipo_op1, monto_1, tasa_1, me1,
-    socio_2, tipo_op2, monto_2, tasa_2, me2, lote_tasa
-  } = payload;
-
-  if (!hash_largo) throw new Error('El hash_largo es obligatorio para registrar la liquidación.');
-
-  const query = `
-    INSERT INTO comprobantes_liq (
-      hash_largo, socio_1, tipo_op1, monto_1, tasa_1, me1,
-      socio_2, tipo_op2, monto_2, tasa_2, me2, lote_tasa, actualizado_en
-    )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
-    ON CONFLICT (hash_largo) DO UPDATE SET
-      socio_1 = EXCLUDED.socio_1, tipo_op1 = EXCLUDED.tipo_op1, monto_1 = EXCLUDED.monto_1,
-      tasa_1 = EXCLUDED.tasa_1, me1 = EXCLUDED.me1, socio_2 = EXCLUDED.socio_2,
-      tipo_op2 = EXCLUDED.tipo_op2, monto_2 = EXCLUDED.monto_2, tasa_2 = EXCLUDED.tasa_2,
-      me2 = EXCLUDED.me2, lote_tasa = EXCLUDED.lote_tasa, actualizado_en = NOW();
-  `;
-
-  const targetHash = String(hash_largo).trim();
-  const s1 = String(socio_1 || 'GENERAL').trim();
-  const tOp1 = String(tipo_op1 || 'D-USDT').trim();
-
-  const m1 = parseFloat(monto_1);
-  const t1 = parseFloat(tasa_1);
-  const e1 = parseFloat(me1);
-
-  const s2 = String(socio_2 && socio_2 !== 'GENERAL' ? socio_2 : 'GENERAL').trim();
-  const tOp2 = String(tipo_op2 || tOp1).trim();
-
-  const m2 = parseFloat(monto_2);
-  const t2 = parseFloat(tasa_2);
-  const e2 = parseFloat(me2);
-
-  await db.query(query, [
-    targetHash, s1, tOp1,
-    !isNaN(m1) ? m1 : 0, !isNaN(t1) ? t1 : 1.0, !isNaN(e1) ? e1 : 0,
-    s2, tOp2,
-    !isNaN(m2) ? m2 : 0, !isNaN(t2) ? t2 : 1.0, !isNaN(e2) ? e2 : 0,
-    lote_tasa || 'T052'
-  ]);
-
-  return { success: true };
-}
+const { liquidarComprobante } = require('./comprobantesLiqService');
+const { cargarContextoSnapshot } = require('./comprobantesPerfilService');
 
 async function actualizarComprobante(hashLargo, datos = {}) {
   const targetHash = String(hashLargo || '').trim();
@@ -68,8 +22,7 @@ async function actualizarComprobante(hashLargo, datos = {}) {
       titular = COALESCE($5, titular)
     WHERE LOWER(TRIM(hash_largo)) = LOWER(TRIM($6));
   `, [
-    valMonto,
-    datos.moneda || null,
+    valMonto, datos.moneda || null,
     datos.banco ? datos.banco.toUpperCase().trim() : null,
     datos.referencia ? datos.referencia.trim() : null,
     datos.titular ? datos.titular.toUpperCase().trim() : null,
@@ -80,30 +33,7 @@ async function actualizarComprobante(hashLargo, datos = {}) {
   const socio1Nombre = datos.nombre_socio_1 || datos.socio_1 || datos.socio1 || 'GENERAL';
   const socio2Nombre = datos.nombre_socio_2 || datos.socio_2 || datos.socio2 || 'GENERAL';
 
-  let tasaLote = null;
-  try {
-    if (typeof obtenerTasaPorId === 'function') tasaLote = await obtenerTasaPorId(idLote);
-  } catch (e) {
-    console.warn(`⚠️ Error lote ${idLote}:`, e.message);
-  }
-  if (!tasaLote) tasaLote = await obtenerUltimasTasas();
-
-  let socio1Data = { nombre: socio1Nombre, moneda_base: 'USDT' };
-  let socio2Data = { nombre: socio2Nombre, moneda_base: 'USDT' };
-
-  if (socio1Nombre && socio1Nombre.toUpperCase() !== 'GENERAL') {
-    const res1 = await db.query(`SELECT * FROM perfiles_glaukov WHERE UPPER(TRIM(nombre)) = UPPER(TRIM($1)) LIMIT 1`, [socio1Nombre]);
-    if (res1.rows.length > 0) socio1Data = res1.rows[0];
-  }
-
-  if (socio2Nombre && socio2Nombre.toUpperCase() !== 'GENERAL') {
-    const res2 = await db.query(`SELECT * FROM perfiles_glaukov WHERE UPPER(TRIM(nombre)) = UPPER(TRIM($1)) LIMIT 1`, [socio2Nombre]);
-    if (res2.rows.length > 0) socio2Data = res2.rows[0];
-  }
-
-  let funddaData = null;
-  const resFundda = await db.query(`SELECT * FROM perfiles_glaukov WHERE UPPER(TRIM(nombre)) = 'FUNDDA' LIMIT 1`);
-  if (resFundda.rows.length > 0) funddaData = resFundda.rows[0];
+  const { tasaLote, socio1Data, socio2Data, funddaData } = await cargarContextoSnapshot(socio1Nombre, socio2Nombre, idLote);
 
   const rawData = {
     hash_largo: targetHash,
@@ -119,4 +49,45 @@ async function actualizarComprobante(hashLargo, datos = {}) {
   return { success: true };
 }
 
-module.exports = { liquidarComprobante, actualizarComprobante };
+async function liquidarAutomaticoPorOmision(hashLargo) {
+  const targetHash = String(hashLargo || '').trim();
+  const { rows } = await db.query(`
+    SELECT 
+      c.hash_largo, c.monto, c.moneda, c.creado_en,
+      COALESCE(n_grupo1.nombre, n_user1.nombre, 'GENERAL') AS socio_1_auto,
+      COALESCE(n_grupo2.nombre, n_user2.nombre, 'GENERAL') AS socio_2_auto,
+      (
+        SELECT t.id_tasa FROM tasas_glaukov t 
+        WHERE t.created_at <= COALESCE(c.creado_en, NOW())
+        ORDER BY t.created_at DESC, t.id DESC LIMIT 1
+      ) AS lote_historico
+    FROM comprobantes_raw c
+    LEFT JOIN impactos_raw i1 ON LOWER(TRIM(i1.hash_largo)) = LOWER(TRIM(c.hash_largo))
+    LEFT JOIN perfiles_glaukov n_grupo1 ON i1.grupo_raw IS NOT NULL AND LOWER(TRIM(n_grupo1.id_grupo)) = LOWER(TRIM(i1.grupo_raw))
+    LEFT JOIN perfiles_glaukov n_user1 ON i1.usuario_raw IS NOT NULL AND LOWER(TRIM(n_user1.id_grupo)) = LOWER(TRIM(i1.usuario_raw))
+    LEFT JOIN impactos_raw i2 ON LOWER(TRIM(i2.hash_largo)) = LOWER(TRIM(c.hash_largo)) AND i2.id != i1.id
+    LEFT JOIN perfiles_glaukov n_grupo2 ON i2.grupo_raw IS NOT NULL AND LOWER(TRIM(n_grupo2.id_grupo)) = LOWER(TRIM(i2.grupo_raw))
+    LEFT JOIN perfiles_glaukov n_user2 ON i2.usuario_raw IS NOT NULL AND LOWER(TRIM(n_user2.id_grupo)) = LOWER(TRIM(i2.usuario_raw))
+    WHERE LOWER(TRIM(c.hash_largo)) = LOWER(TRIM($1))
+    LIMIT 1;
+  `, [targetHash]);
+
+  if (rows.length === 0) return;
+  const comp = rows[0];
+  const idLote = comp.lote_historico || 'T052';
+
+  const { tasaLote, socio1Data, socio2Data, funddaData } = await cargarContextoSnapshot(comp.socio_1_auto, comp.socio_2_auto, idLote);
+
+  const rawData = {
+    hash_largo: targetHash,
+    monto: comp.monto || 0,
+    moneda: comp.moneda || 'COP',
+    tipo_manual: 'P',
+    id_tasa: idLote
+  };
+
+  const snapshot = calcularSnapshotFinanciero(rawData, socio1Data, socio2Data, tasaLote, funddaData);
+  await liquidarComprobante(snapshot);
+}
+
+module.exports = { actualizarComprobante, liquidarAutomaticoPorOmision };
