@@ -3,7 +3,6 @@
  * @description Motor de cálculo financiero para congelar snapshots de comprobantes en glauk2.
  */
 const { truncarTasaSegura, truncarMontoSeguro } = require('../utils/snapshotMath.utils');
-
 function resolverConfigSocio(socioData, divisaRaw, funddaData) {
   if (!socioData || !socioData.nombre || socioData.nombre.toUpperCase() === 'GENERAL') {
     return { activo: false, confDivisa: null, hereda: false, monedaSocio: 'USDT' };
