@@ -1,16 +1,40 @@
 /**
  * @file comprobantesState.js
- * @description Estado reactivo de Alpine.js para la auditoría de comprobantes en glauk2.
+ * @description Átomo de estado reactivo Alpine.js para la auditoría de comprobantes.
  */
-import { obtenerComprobantes, eliminarComprobantePorHash } from '../services/comprobantesApiService.js';
+
+import { 
+  obtenerComprobantes, 
+  eliminarComprobantePorHash,
+  prepararEdicionComprobante,
+  guardarCambiosComprobante,
+  solicitarRelecturaIA
+} from '../services/comprobantesApiService.js';
+
+import { 
+  calcularSociosPendientesConsolidado, 
+  calcularMovimientoFiltradoTotal 
+} from '../services/saldosCalculatorService.js';
+
+import { 
+  formatMonto, 
+  formatTasa, 
+  obtenerME1, 
+  obtenerME2, 
+  obtenerTasaSocioCalculada, 
+  claseInsignia 
+} from '../utils/comprobantesFormatters.js';
 
 export function comprobantesState() {
   return {
+    // 1. PROPIEDADES REACTIVAS
     items: [],
-    directorio: [],
+    comprobantes: [],
     cargando: false,
+    modalAbierto: false,
+    itemEdicion: null,
 
-    // Filtros reactivos
+    // Filtros
     filtroRol: '',
     filtroSocio: '',
     filtroFechaInicio: '',
@@ -20,6 +44,31 @@ export function comprobantesState() {
     filtroOrden: 'fecha_desc',
     filtroHash: '',
 
+    // 2. GETTERS COMPUTADOS
+    get sujetoAuditado() {
+      return !this.filtroSocio ? 'CONSOLIDADO GENERAL' : `SOCIO / ENTIDAD: ${this.filtroSocio}`;
+    },
+
+    get saldoAnterior() {
+      return 0.00;
+    },
+
+    get comprobantesProcesadosYOrdenados() {
+      return this.items;
+    },
+
+    get movimientoFiltradoTotal() {
+      return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
+    },
+
+    get sociosPendientesConsolidado() {
+      return calcularSociosPendientesConsolidado(this.directorio, this.items, {
+        fechaInicio: this.filtroFechaInicio,
+        fechaFin: this.filtroFechaFin
+      });
+    },
+
+    // 3. ACCIONES Y FLUJOS
     async init() {
       await this.cargarComprobantes();
     },
@@ -36,57 +85,43 @@ export function comprobantesState() {
         orden: this.filtroOrden,
         hash: this.filtroHash
       };
-      this.items = await obtenerComprobantes(params);
+      this.items = (await obtenerComprobantes(params)) || [];
+      this.comprobantes = this.items;
       this.cargando = false;
     },
 
-    // Helpers de Formato y Cálculo Visual
-    formatMonto(val) {
-      const num = parseFloat(val) || 0;
-      return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    abrirModal(item) {
+      this.itemEdicion = prepararEdicionComprobante(item, this.loteActivo);
+      this.modalAbierto = true;
     },
 
-    formatTasa(val) {
-      const num = parseFloat(val) || 0;
-      return num > 99.99 ? Math.trunc(num).toLocaleString('en-US') : num.toFixed(2);
+    async guardarCambios() {
+      if (await guardarCambiosComprobante(this.itemEdicion?.hash_largo, this.itemEdicion, this.loteActivo)) {
+        this.modalAbierto = false;
+        await this.cargarComprobantes();
+      }
     },
 
-    obtenerME1(item) {
-      if (!item) return 0;
-      return item.me1 !== undefined && item.me1 !== null 
-        ? item.me1 
-        : (item.monto_1 !== undefined ? item.monto_1 : item.monto || 0);
-    },
-
-    obtenerME2(item) {
-      if (!item) return 0;
-      return item.me2 !== undefined && item.me2 !== null 
-        ? item.me2 
-        : (item.monto_2 !== undefined ? item.monto_2 : 0);
-    },
-
-    obtenerTasaSocioCalculada(item, numSocio) {
-      if (!item) return 1.0;
-      return numSocio === 1 ? (item.tasa_1 || 1.0) : (item.tasa_2 || 1.0);
-    },
-
-    claseInsignia(tipoOp) {
-      const t = String(tipoOp || 'D').toUpperCase().trim();
-      if (t === 'D') return 'bg-emerald-950 text-emerald-300 border-emerald-500/40';
-      if (t === 'P') return 'bg-rose-950 text-rose-300 border-rose-500/40';
-      if (t === 'A') return 'bg-cyan-950 text-cyan-300 border-cyan-500/40';
-      return 'bg-slate-800 text-slate-300 border-slate-600';
-    },
-
-    abrirModalEdicion(item) {
-      this.$dispatch('abrir-modal-edicion', { item });
+    async releerIAModal() {
+      if (await solicitarRelecturaIA(this.itemEdicion?.hash_largo)) {
+        this.modalAbierto = false;
+        await this.cargarComprobantes();
+      }
     },
 
     async eliminarComprobante(hashLargo) {
-      const ok = await eliminarComprobantePorHash(hashLargo);
-      if (ok) {
+      if (await eliminarComprobantePorHash(hashLargo)) {
+        this.modalAbierto = false;
         await this.cargarComprobantes();
       }
-    }
+    },
+
+    // 4. DELEGACIÓN A FORMATTEERS ATÓMICOS
+    formatMonto,
+    formatTasa,
+    obtenerME1,
+    obtenerME2,
+    obtenerTasaSocioCalculada,
+    claseInsignia
   };
 }
