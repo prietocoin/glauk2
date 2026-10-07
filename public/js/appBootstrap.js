@@ -3,7 +3,7 @@
  * @description Bootstrapper estándar de Alpine.js para servidor EJS.
  */
 
-import { LISTA_MONEDAS_ACTIVAS, obtenerInfoMonedasMaestra } from './constants/listaMonedasActivas.js';
+import { LISTA_MONEDAS_ACTIVAS, obtenerInfoMonedasMaestra } from './shared/constants/listaMonedasActivas.js';
 import { calcularTasaEnVivo, obtenerClaseTalla } from './utils/calculoTasaEnVivo.js';
 import { obtenerDirectorioNormalizado } from './services/directorioService.js';
 import { alternarEstadoSocioWA } from './services/socioEstadoService.js';
