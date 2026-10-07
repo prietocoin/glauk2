@@ -18,6 +18,7 @@ async function releerIA(hashLargo) {
     FROM comprobantes_raw c
     LEFT JOIN impactos_raw i ON LOWER(TRIM(c.hash_largo)) = LOWER(TRIM(i.hash_largo))
     WHERE LOWER(TRIM(c.hash_largo)) = LOWER(TRIM($1))
+    ORDER BY i.id ASC
     LIMIT 1;
   `, [targetHash]);
 
