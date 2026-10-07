@@ -1,49 +1,41 @@
 /**
  * @file saldosFilterUtils.js
- * @description Utilidad pura para filtrar y recortar colecciones de comprobantes por fechas y hashes.
+ * @description Utilidades de filtrado y formateo para comprobantes.
  */
 
-/**
- * Filtra comprobantes por rango de fechas y límites por hash.
- * @param {Array} comprobantes 
- * @param {Object} filtros { fechaInicio, fechaFin, desdeHash, hastaHash }
- * @returns {Array}
- */
-export function filtrarComprobantesPorRango(comprobantes = [], filtros = {}) {
-  if (!Array.isArray(comprobantes)) return [];
-  let resultado = [...comprobantes];
+export function formatMonto(val) {
+  const num = parseFloat(val) || 0;
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
-  if (filtros.fechaInicio) {
-    const fInit = new Date(filtros.fechaInicio + 'T00:00:00').getTime();
-    resultado = resultado.filter(c => {
-      const t = c.fecha_hora_comprobante ? new Date(c.fecha_hora_comprobante).getTime() : ((c.timestamp || 0) * 1000);
-      return t >= fInit;
-    });
-  }
+export function formatTasa(val) {
+  const num = parseFloat(val) || 0;
+  return num > 99.99 ? Math.trunc(num).toLocaleString('en-US') : num.toFixed(2);
+}
 
-  if (filtros.fechaFin) {
-    const fFin = new Date(filtros.fechaFin + 'T23:59:59').getTime();
-    resultado = resultado.filter(c => {
-      const t = c.fecha_hora_comprobante ? new Date(c.fecha_hora_comprobante).getTime() : ((c.timestamp || 0) * 1000);
-      return t <= fFin;
-    });
-  }
+export function obtenerME1(item) {
+  if (!item) return 0;
+  return item.me1 !== undefined && item.me1 !== null 
+    ? item.me1 
+    : (item.monto_1 !== undefined ? item.monto_1 : item.monto || 0);
+}
 
-  if (filtros.desdeHash || filtros.hastaHash) {
-    let idxDesde = 0;
-    let idxHasta = resultado.length - 1;
-    if (filtros.desdeHash) {
-      const found = resultado.findIndex(c => c.hash_largo === filtros.desdeHash);
-      if (found !== -1) idxDesde = found;
-    }
-    if (filtros.hastaHash) {
-      const found = resultado.findIndex(c => c.hash_largo === filtros.hastaHash);
-      if (found !== -1) idxHasta = found;
-    }
-    const start = Math.min(idxDesde, idxHasta);
-    const end = Math.max(idxDesde, idxHasta);
-    resultado = resultado.slice(start, end + 1);
-  }
+export function obtenerME2(item) {
+  if (!item) return 0;
+  return item.me2 !== undefined && item.me2 !== null 
+    ? item.me2 
+    : (item.monto_2 !== undefined ? item.monto_2 : 0);
+}
 
-  return resultado;
+export function obtenerTasaSocioCalculada(item, numSocio) {
+  if (!item) return 1.0;
+  return numSocio === 1 ? (item.tasa_1 || 1.0) : (item.tasa_2 || 1.0);
+}
+
+export function claseInsignia(tipoOp) {
+  const t = String(tipoOp || 'D').toUpperCase().trim();
+  if (t === 'D') return 'bg-emerald-950 text-emerald-300 border-emerald-500/40';
+  if (t === 'P') return 'bg-rose-950 text-rose-300 border-rose-500/40';
+  if (t === 'A') return 'bg-cyan-950 text-cyan-300 border-cyan-500/40';
+  return 'bg-slate-800 text-slate-300 border-slate-600';
 }
