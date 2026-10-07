@@ -4,12 +4,13 @@
  */
 
 import { 
-  obtenerComprobantes, 
-  eliminarComprobantePorHash,
-  prepararEdicionComprobante,
-  guardarCambiosComprobante,
-  solicitarRelecturaIA
-} from '../services/comprobantesApiService.js';
+  formatMonto, 
+  formatTasa, 
+  obtenerME1, 
+  obtenerME2, 
+  obtenerTasaSocioCalculada, 
+  claseInsignia 
+} from '../utils/saldosFilterUtils.js';
 
 import { 
   calcularSociosPendientesConsolidado, 
