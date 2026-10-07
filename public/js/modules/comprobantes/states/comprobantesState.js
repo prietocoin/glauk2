@@ -1,5 +1,6 @@
 /**
  * @file comprobantesState.js
+ * @path public/js/modules/comprobantes/states/comprobantesState.js
  * @description Átomo de estado reactivo Alpine.js para la auditoría de comprobantes.
  */
 
@@ -15,6 +16,7 @@ import {
 
 import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
+import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
 
 export function comprobantesState() {
   const state = {
@@ -46,7 +48,8 @@ export function comprobantesState() {
         desdeHash: this.filtroDesdeHash, hastaHash: this.filtroHastaHash,
         orden: this.filtroOrden, hash: this.filtroHash
       };
-      this.items = (await obtenerComprobantes(params)) || [];
+      const rawItems = (await obtenerComprobantes(params)) || [];
+      this.items = rawItems.map(item => prepararEdicionComprobante(item, this.loteActivo));
       this.comprobantes = this.items;
       this.cargando = false;
     },
