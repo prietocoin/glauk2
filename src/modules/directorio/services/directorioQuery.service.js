@@ -1,4 +1,4 @@
-const db = require('#config/db');
+const db = require('#config/database');
 
 async function obtenerDirectorio() {
   const { rows } = await db.query('SELECT * FROM perfiles_glaukov ORDER BY nombre ASC;');
