@@ -2,8 +2,7 @@
  * @file adminController.js
  * @description Controlador de administración atómico para inspección y gestión de la cola en glauk2.
  */
-const db = require('../../../config/db');
-
+const db = require('#config/database');
 /**
  * Obtiene los últimos 50 registros de la cola de notificaciones.
  */
