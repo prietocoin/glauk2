@@ -58,7 +58,6 @@ async function eliminarItemColaAdmin(hash_largo, adminKey) {
 
   const targetHash = String(hash_largo || '').trim().toLowerCase();
 
-  // Ejecución en bloque para mantener integridad
   await db.query('BEGIN');
   try {
     await db.query('DELETE FROM comprobantes_fb WHERE LOWER(hash_largo) = $1;', [targetHash]);
