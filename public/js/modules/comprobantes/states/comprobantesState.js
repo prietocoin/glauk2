@@ -13,7 +13,7 @@ import {
   calcularMovimientoFiltradoTotal 
 } from '../services/saldosCalculatorService.js';
 
-import { obtenerComprobantesApi } from '../services/comprobantesApiService.js';
+import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 
 export function comprobantesState() {
@@ -46,7 +46,7 @@ export function comprobantesState() {
         desdeHash: this.filtroDesdeHash, hastaHash: this.filtroHastaHash,
         orden: this.filtroOrden, hash: this.filtroHash
       };
-      this.items = (await obtenerComprobantesApi(params)) || [];
+      this.items = (await obtenerComprobantes(params)) || [];
       this.comprobantes = this.items;
       this.cargando = false;
     },
