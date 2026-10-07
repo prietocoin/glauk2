@@ -6,8 +6,8 @@
     "start": "node server.js"
   },
   "imports": {
-    "#config/*": "./config/*.js",
-    "#modules/*": "./src/modules/*.js"
+    "#config/*": "./config/*",
+    "#modules/*": "./src/modules/*"
   },
   "dependencies": {
     "bullmq": "^5.7.0",
