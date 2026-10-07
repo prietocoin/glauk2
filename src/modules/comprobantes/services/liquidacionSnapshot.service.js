@@ -3,7 +3,7 @@
  * @description Servicio atómico para obtención de datos, cálculo y congelado de comprobantes.
  */
 const db = require('#config/database');
-const { calcularSnapshotFinanciero } = require('#modules/comprobantes/services/liquidacion.service');
+const { calcularSnapshotFinanciero } = require('#modules/comprobantes/services/snapshotCalculator');
 async function buscarPerfilSocio(identificador) {
   if (!identificador) return null;
   const target = identificador.trim().toLowerCase();
