@@ -4,7 +4,7 @@
  */
 const { Worker, Queue } = require('bullmq');
 const redisConnection = require('#config/redis');
-const { procesarSnapshotComprobante } = require('../modules/atenea/services/liquidacionSnapshot.service');
+const liquidacionSnapshot = require('#modules/reportes/services/liquidacionSnapshot.service'); // O la carpeta del módulo donde esté guardado
 
 const liquidacionQueue = new Queue('cola-liquidaciones', { connection: redisConnection });
 
