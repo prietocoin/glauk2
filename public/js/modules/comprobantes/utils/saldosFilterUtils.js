@@ -39,3 +39,14 @@ export function claseInsignia(tipoOp) {
   if (t === 'A') return 'bg-cyan-950 text-cyan-300 border-cyan-500/40';
   return 'bg-slate-800 text-slate-300 border-slate-600';
 }
+
+export function filtrarComprobantesPorRango(comprobantes, fechaInicio, fechaFin) {
+  if (!Array.isArray(comprobantes)) return [];
+  return comprobantes.filter(item => {
+    if (!item.fecha) return true;
+    const f = new Date(item.fecha);
+    if (fechaInicio && f < new Date(fechaInicio)) return false;
+    if (fechaFin && f > new Date(fechaFin)) return false;
+    return true;
+  });
+}
