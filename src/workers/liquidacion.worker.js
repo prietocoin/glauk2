@@ -4,8 +4,7 @@
  */
 const { Worker, Queue } = require('bullmq');
 const redisConnection = require('#config/redis');
-const liquidacionSnapshot = require('#modules/reportes/services/liquidacionSnapshot.service'); // O la carpeta del módulo donde esté guardado
-
+const liquidacionSnapshot = require('#modules/liquidacion/services/liquidacionSnapshot.service');
 const liquidacionQueue = new Queue('cola-liquidaciones', { connection: redisConnection });
 
 const liquidacionWorker = new Worker(
