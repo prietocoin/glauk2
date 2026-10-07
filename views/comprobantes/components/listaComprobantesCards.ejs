@@ -1,13 +1,13 @@
 <!-- ================================================================= -->
 <!-- COMPONENTE: listaComprobantesCards.ejs                            -->
-<!-- UBICACIÓN: views/comprobantes/components/                        -->
+<!-- UBICACIÓN: views/comprobantes/components/                         -->
 <!-- RESPONSABILIDAD: Grilla iterativa de tarjetas de comprobantes     -->
 <!-- ================================================================= -->
 
 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-5">
   
-  <!-- BUCLE VINCULADO AL GETTER FILTRADO -->
-  <template x-for="(item, index) in comprobantesProcesadosYOrdenados" :key="item.hash_largo || item.hash_corto || index">
+  <!-- BUCLE VINCULADO AL GETTER FILTRADO CON FALLBACK SEGURO -->
+  <template x-for="(item, index) in (comprobantesProcesadosYOrdenados || [])" :key="item.hash_largo || item.hash_corto || ('cmp-' + index)">
     
     <div class="bg-[#060c24] border border-[#16224f] hover:border-cyan-500/40 rounded-2xl p-3 md:p-4 shadow-xl flex flex-col justify-between gap-2.5 transition-all relative">
       <%- include('./cardHeader.ejs') %>
