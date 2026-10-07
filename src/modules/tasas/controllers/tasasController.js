@@ -1,15 +1,15 @@
 /**
  * @file tasasController.js
- * @description Controlador atómico para activación del flujo de tasas.
+ * @description Controlador HTTP atómico para el flujo y notificaciones de tasas en glauk2.
  */
-
-const db = require('../../../config/db');
+const { obtenerNotificacionActual, crearNotificacionTasa } = require('../services/tasasNotificacion.service');
 
 async function obtenerTasaActualController(req, res) {
   try {
-    const { rows } = await db.query(`SELECT * FROM notificaciones_tasas LIMIT 1;`);
-    return res.status(200).json({ success: true, data: rows || [] });
+    const data = await obtenerNotificacionActual();
+    return res.status(200).json({ success: true, data });
   } catch (err) {
+    console.error('[tasasController ❌ Error al obtener tasa]:', err.message);
     return res.status(200).json({ success: true, data: [] });
   }
 }
@@ -17,9 +17,14 @@ async function obtenerTasaActualController(req, res) {
 async function publicarYDespacharTasaController(req, res) {
   try {
     const { tasa } = req.body;
-    await db.query(`INSERT INTO notificaciones_tasas (tasa) VALUES ($1);`, [tasa]);
-    return res.json({ success: true, message: 'Flujo activado correctamente' });
+    if (!tasa) {
+      return res.status(400).json({ success: false, error: 'El parámetro tasa es requerido.' });
+    }
+
+    await crearNotificacionTasa(tasa);
+    return res.status(200).json({ success: true, message: 'Flujo activado correctamente' });
   } catch (err) {
+    console.error('[tasasController ❌ Error al publicar tasa]:', err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
 }
