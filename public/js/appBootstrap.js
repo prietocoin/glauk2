@@ -1,6 +1,6 @@
 /**
  * @file appBootstrap.js
- * @description Bootstrapper estándar de Alpine.js con rutas modulares para Glauk2.
+ * @description Bootstrapper estándar de Alpine.js con rutas modulares unificadas para Glauk2.
  */
 
 // 1. CONSTANTES COMPARTIDAS
@@ -19,9 +19,14 @@ import { alternarEstadoSocioWA } from './modules/directorio/services/socioEstado
 import { alternarHerenciaSocio } from './modules/directorio/services/socioHerenciaService.js';
 import { prepararEdicionSocio, guardarConfiguracionSocio } from './modules/directorio/services/socioConfigModalService.js';
 
-// 4. MÓDULO: COMPROBANTES (Services & Utils Reestructurados)
-import { obtenerComprobantes, prepararEdicionComprobante, guardarCambiosComprobante, eliminarComprobantePorHash } from './modules/comprobantes/services/comprobantesApiService.js';
-import { solicitarRelecturaIA } from './modules/comprobantes/services/comprobantesIaService.js';
+// 4. MÓDULO: COMPROBANTES (Consolidado en API Service, Calculator y Filter Utils)
+import { 
+  obtenerComprobantes, 
+  prepararEdicionComprobante, 
+  guardarCambiosComprobante, 
+  eliminarComprobantePorHash,
+  solicitarRelecturaIA 
+} from './modules/comprobantes/services/comprobantesApiService.js';
 import { calcularSociosPendientesConsolidado } from './modules/comprobantes/services/saldosCalculatorService.js';
 import { calcularMovimientoFiltradoTotal } from './modules/comprobantes/utils/saldosFilterUtils.js';
 
