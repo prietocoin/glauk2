@@ -2,7 +2,7 @@
  * @file comprobantesSnapshotService.js
  * @description Orquestador de actualización de comprobantes y snapshots automáticos.
  */
-const db = require('../../../../config/db');
+const db = require('#config/database');
 const { calcularSnapshotFinanciero } = require('./liquidacionService');
 const { liquidarComprobante } = require('./comprobantesLiqService');
 const { cargarContextoSnapshot } = require('./comprobantesPerfilService');
