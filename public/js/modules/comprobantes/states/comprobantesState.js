@@ -26,18 +26,36 @@ export function comprobantesState() {
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
     filtroDesdeHash: '', filtroHastaHash: '', filtroOrden: 'fecha_desc', filtroHash: '',
 
-    // 2. GETTERS COMPUTADOS
+    // 2. GETTERS COMPUTADOS CON FILTRADO ESTRICTO POR SOCIO
     get sujetoAuditado() { return !this.filtroSocio ? 'CONSOLIDADO GENERAL' : `SOCIO / ENTIDAD: ${this.filtroSocio}`; },
     get saldoAnterior() { return 0.00; },
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
-    get comprobantesProcesadosYOrdenados() { return this.items; },
+    
+    get comprobantesProcesadosYOrdenados() {
+      if (!Array.isArray(this.items)) return [];
+
+      const socioBuscado = (this.filtroSocio || '').trim().toUpperCase();
+
+      // Si no hay filtro de socio seleccionado o está en 'TODOS', devuelve toda la lista
+      if (!socioBuscado || socioBuscado === 'TODOS' || socioBuscado === 'TODOS LOS SOCIOS') {
+        return this.items;
+      }
+
+      // Filtrado estricto: Coincidencia de nombre exacto en Socio 1 o Socio 2
+      return this.items.filter(item => {
+        const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
+        const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
+
+        return s1 === socioBuscado || s2 === socioBuscado;
+      });
+    },
 
     get movimientoFiltradoTotal() { 
-      return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio); 
+      return calcularMovimientoFiltradoTotal(this.comprobantesProcesadosYOrdenados, this.filtroSocio); 
     },
 
     get sociosPendientesConsolidado() {
-      return calcularSociosPendientesConsolidado(this.directorio, this.items, {
+      return calcularSociosPendientesConsolidado(this.directorio, this.comprobantesProcesadosYOrdenados, {
         fechaInicio: this.filtroFechaInicio, fechaFin: this.filtroFechaFin
       });
     },
@@ -51,7 +69,7 @@ export function comprobantesState() {
 
     async cargarComprobantes() {
       this.cargando = true;
-      const limpiarFiltro = (val) => (!val || String(val).toUpperCase() === 'TODOS') ? '' : val;
+      const limpiarFiltro = (val) => (!val || String(val).toUpperCase() === 'TODOS' || String(val).toUpperCase() === 'TODOS LOS SOCIOS') ? '' : val;
 
       const params = {
         rol: limpiarFiltro(this.filtroRol),
@@ -67,7 +85,6 @@ export function comprobantesState() {
       const raw = (await obtenerComprobantes(params)) || [];
       const lista = Array.isArray(raw) ? raw : (raw.objects || raw.comprobantes || []);
       
-      // Mapeo inmediato en memory y asignación a la propiedad reactiva
       this.items = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
       this.comprobantes = this.items;
       this.cargando = false;
