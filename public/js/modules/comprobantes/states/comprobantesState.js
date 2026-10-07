@@ -17,7 +17,6 @@ import {
 import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
-import { filtrarComprobantesPorSocio, limpiarFiltro } from '../services/comprobantesFilterService.js';
 
 export function comprobantesState() {
   const state = {
@@ -27,7 +26,7 @@ export function comprobantesState() {
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
     filtroDesdeHash: '', filtroHastaHash: '', filtroOrden: 'fecha_desc', filtroHash: '',
 
-    // 2. GETTERS COMPUTADOS (Delegación limpia a servicios)
+    // 2. GETTERS COMPUTADOS (Seguros contra errores)
     get sujetoAuditado() { 
       return (!this.filtroSocio || this.filtroSocio === 'TODOS' || this.filtroSocio === 'TODOS LOS SOCIOS') 
         ? 'CONSOLIDADO GENERAL' 
@@ -36,8 +35,25 @@ export function comprobantesState() {
     get saldoAnterior() { return 0.00; },
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
     
+    // GETTER DE FILTRADO ESTRICTO (Sólo evalúa Socio 1 y Socio 2, descartando Titular del Banco)
     get comprobantesProcesadosYOrdenados() {
-      return filtrarComprobantesPorSocio(this.items, this.directorio, this.filtroSocio);
+      const lista = Array.isArray(this.items) ? this.items : [];
+      if (!lista.length) return [];
+
+      const socioBuscado = (this.filtroSocio || '').trim().toUpperCase();
+
+      // Si no hay filtro o es 'TODOS', devuelve todos los comprobantes
+      if (!socioBuscado || socioBuscado === 'TODOS' || socioBuscado === 'TODOS LOS SOCIOS') {
+        return lista;
+      }
+
+      // Comparación estricta exclusiva sobre Socio 1 y Socio 2
+      return lista.filter(item => {
+        const s1 = String(item?.nombre_socio_1 || item?.socio_1 || '').trim().toUpperCase();
+        const s2 = String(item?.nombre_socio_2 || item?.socio_2 || '').trim().toUpperCase();
+
+        return s1 === socioBuscado || s2 === socioBuscado;
+      });
     },
 
     get movimientoFiltradoTotal() { 
@@ -50,7 +66,7 @@ export function comprobantesState() {
       });
     },
 
-    // FALLBACK: Extrae socios únicos dinámicamente si el directorio no ha cargado
+    // Extrae la lista única de socios para el selector dinámico
     get listaSociosUnicos() {
       if (!Array.isArray(this.items)) return [];
       const set = new Set();
@@ -63,7 +79,7 @@ export function comprobantesState() {
       return Array.from(set).sort();
     },
 
-    // 3. INICIALIZACIÓN Y API
+    // 3. INICIALIZACIÓN Y CARGA DE DATOS
     init() {
       this.$nextTick(() => {
         this.cargarComprobantes();
@@ -72,7 +88,9 @@ export function comprobantesState() {
 
     async cargarComprobantes() {
       this.cargando = true;
+      const limpiarFiltro = (val) => (!val || String(val).toUpperCase() === 'TODOS' || String(val).toUpperCase() === 'TODOS LOS SOCIOS') ? '' : val;
 
+      // Se omiten 'socio' en los parámetros HTTP para que la API no aplique el LIKE en la BD sobre el Titular
       const params = {
         rol: limpiarFiltro(this.filtroRol),
         fechaInicio: this.filtroFechaInicio,
