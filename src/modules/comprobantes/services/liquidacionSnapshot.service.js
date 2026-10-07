@@ -4,7 +4,6 @@
  */
 const db = require('#config/db');
 const { calcularSnapshotFinanciero } = require('./liquidacion.service');
-const mercadoService = require('./mercado.service');
 
 async function buscarPerfilSocio(identificador) {
   if (!identificador) return null;
