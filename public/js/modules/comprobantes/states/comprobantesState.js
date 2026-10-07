@@ -32,16 +32,7 @@ export function comprobantesState() {
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
     
     get comprobantesProcesadosYOrdenados() {
-      const lista = Array.isArray(this.items) ? this.items : [];
-      if (!lista.length) return [];
-
-      return lista.map(item => {
-        try {
-          return prepararEdicionComprobante(item, this.loteActivo) || item;
-        } catch (e) {
-          return item;
-        }
-      });
+      return Array.isArray(this.items) ? this.items : [];
     },
 
     get movimientoFiltradoTotal() { 
@@ -54,17 +45,13 @@ export function comprobantesState() {
       });
     },
 
-    // 3. INICIALIZACIÓN SECUENCIAL (Carga diferida pos-montaje DOM)
-    init() {
-      setTimeout(() => {
-        this.cargarComprobantes();
-      }, 100);
+    // 3. INICIALIZACIÓN Y CARGA DE API
+    async init() {
+      await this.cargarComprobantes();
     },
 
     async cargarComprobantes() {
       this.cargando = true;
-      
-      // Sanitización de filtros para evitar considerar 'TODOS' como valor literal de búsqueda
       const limpiarFiltro = (val) => (!val || val.toUpperCase() === 'TODOS') ? '' : val;
 
       const params = {
@@ -81,13 +68,19 @@ export function comprobantesState() {
       const raw = (await obtenerComprobantes(params)) || [];
       const lista = Array.isArray(raw) ? raw : (raw.objects || raw.comprobantes || []);
       
-      this.items = lista;
+      // Normalización inmediata en memoria
+      this.items = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
       this.comprobantes = this.items;
       this.cargando = false;
     },
 
-    // 4. FORMATEADORES ATÓMICOS
-    formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia
+    // 4. FORMATEADORES ATÓMICOS SEGUROS
+    formatMonto: (val) => typeof formatMonto === 'function' ? formatMonto(val || 0) : (parseFloat(val) || 0).toFixed(2),
+    formatTasa: (val) => typeof formatTasa === 'function' ? formatTasa(val || 1) : (parseFloat(val) || 1).toFixed(4),
+    obtenerME1: (item) => typeof obtenerME1 === 'function' ? obtenerME1(item) : (item?.me1 || item?.monto || 0),
+    obtenerME2: (item) => typeof obtenerME2 === 'function' ? obtenerME2(item) : (item?.me2 || 0),
+    obtenerTasaSocioCalculada: (item, num) => typeof obtenerTasaSocioCalculada === 'function' ? obtenerTasaSocioCalculada(item, num) : 1.0,
+    claseInsignia: (tipo) => typeof claseInsignia === 'function' ? claseInsignia(tipo) : 'bg-slate-800 text-slate-200 border-slate-700'
   };
 
   Object.assign(state, crearAccionesModal(state));
