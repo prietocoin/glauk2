@@ -20,7 +20,7 @@ import { prepararEdicionComprobante } from '../services/comprobantesMapperServic
 
 export function comprobantesState() {
   const state = {
-    // 1. PROPIEDADES REACTIVAS Y FILTROS
+    // 1. PROPIEDADES REACTIVAS
     items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
     loteActivo: 'T052',
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
@@ -30,29 +30,28 @@ export function comprobantesState() {
     get sujetoAuditado() { return !this.filtroSocio ? 'CONSOLIDADO GENERAL' : `SOCIO / ENTIDAD: ${this.filtroSocio}`; },
     get saldoAnterior() { return 0.00; },
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
-    
-    get comprobantesProcesadosYOrdenados() {
-      return Array.isArray(this.items) ? this.items : [];
-    },
+    get comprobantesProcesadosYOrdenados() { return this.items; },
 
     get movimientoFiltradoTotal() { 
-      return calcularMovimientoFiltradoTotal(this.comprobantesProcesadosYOrdenados, this.filtroSocio); 
+      return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio); 
     },
 
     get sociosPendientesConsolidado() {
-      return calcularSociosPendientesConsolidado(this.directorio, this.comprobantesProcesadosYOrdenados, {
+      return calcularSociosPendientesConsolidado(this.directorio, this.items, {
         fechaInicio: this.filtroFechaInicio, fechaFin: this.filtroFechaFin
       });
     },
 
-    // 3. INICIALIZACIÓN Y CARGA DE API
-    async init() {
-      await this.cargarComprobantes();
+    // 3. INICIALIZACIÓN SINCRONIZADA
+    init() {
+      this.$nextTick(() => {
+        this.cargarComprobantes();
+      });
     },
 
     async cargarComprobantes() {
       this.cargando = true;
-      const limpiarFiltro = (val) => (!val || val.toUpperCase() === 'TODOS') ? '' : val;
+      const limpiarFiltro = (val) => (!val || String(val).toUpperCase() === 'TODOS') ? '' : val;
 
       const params = {
         rol: limpiarFiltro(this.filtroRol),
@@ -68,19 +67,19 @@ export function comprobantesState() {
       const raw = (await obtenerComprobantes(params)) || [];
       const lista = Array.isArray(raw) ? raw : (raw.objects || raw.comprobantes || []);
       
-      // Normalización inmediata en memoria
+      // Mapeo inmediato en memory y asignación a la propiedad reactiva
       this.items = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
       this.comprobantes = this.items;
       this.cargando = false;
     },
 
-    // 4. FORMATEADORES ATÓMICOS SEGUROS
-    formatMonto: (val) => typeof formatMonto === 'function' ? formatMonto(val || 0) : (parseFloat(val) || 0).toFixed(2),
-    formatTasa: (val) => typeof formatTasa === 'function' ? formatTasa(val || 1) : (parseFloat(val) || 1).toFixed(4),
-    obtenerME1: (item) => typeof obtenerME1 === 'function' ? obtenerME1(item) : (item?.me1 || item?.monto || 0),
+    // 4. FORMATEADORES
+    formatMonto: (v) => typeof formatMonto === 'function' ? formatMonto(v || 0) : String(v || 0),
+    formatTasa: (v) => typeof formatTasa === 'function' ? formatTasa(v || 1) : String(v || 1),
+    obtenerME1: (item) => typeof obtenerME1 === 'function' ? obtenerME1(item) : (item?.me1 || 0),
     obtenerME2: (item) => typeof obtenerME2 === 'function' ? obtenerME2(item) : (item?.me2 || 0),
-    obtenerTasaSocioCalculada: (item, num) => typeof obtenerTasaSocioCalculada === 'function' ? obtenerTasaSocioCalculada(item, num) : 1.0,
-    claseInsignia: (tipo) => typeof claseInsignia === 'function' ? claseInsignia(tipo) : 'bg-slate-800 text-slate-200 border-slate-700'
+    obtenerTasaSocioCalculada: (item, n) => typeof obtenerTasaSocioCalculada === 'function' ? obtenerTasaSocioCalculada(item, n) : 1,
+    claseInsignia: (t) => typeof claseInsignia === 'function' ? claseInsignia(t) : 'bg-slate-800 text-slate-200'
   };
 
   Object.assign(state, crearAccionesModal(state));
