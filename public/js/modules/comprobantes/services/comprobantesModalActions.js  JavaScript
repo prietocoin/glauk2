@@ -1,0 +1,36 @@
+/**
+ * @file comprobantesModalActions.js
+ * @description Acciones atómicas de mutación y flujo para el modal de comprobantes.
+ */
+
+export function crearAccionesModal(state) {
+  return {
+    abrirModal(item) {
+      state.itemEdicion = typeof prepararEdicionComprobante === 'function' 
+        ? prepararEdicionComprobante(item, state.loteActivo) 
+        : item;
+      state.modalAbierto = true;
+    },
+
+    async guardarCambios() {
+      if (typeof guardarCambiosComprobante === 'function' && await guardarCambiosComprobante(state.itemEdicion?.hash_largo, state.itemEdicion, state.loteActivo)) {
+        state.modalAbierto = false;
+        await state.cargarComprobantes();
+      }
+    },
+
+    async releerIAModal() {
+      if (typeof solicitarRelecturaIA === 'function' && await solicitarRelecturaIA(state.itemEdicion?.hash_largo)) {
+        state.modalAbierto = false;
+        await state.cargarComprobantes();
+      }
+    },
+
+    async eliminarComprobante(hashLargo) {
+      if (typeof eliminarComprobantePorHash === 'function' && await eliminarComprobantePorHash(hashLargo)) {
+        state.modalAbierto = false;
+        await state.cargarComprobantes();
+      }
+    }
+  };
+}
