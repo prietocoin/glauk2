@@ -3,7 +3,7 @@
  * @description Worker consumidor atómico de BullMQ para el despacho de carteleras de tasas.
  */
 const { Worker } = require('bullmq');
-const redisConnection = require('../config/redis');
+const redis = require('#config/redis');
 const { obtenerImagenTasasHub } = require('../modules/integrations/tasashubClient');
 const { enviarImagenWhatsApp } = require('../modules/integrations/evolutionClient');
 
