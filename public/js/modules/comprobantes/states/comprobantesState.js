@@ -26,24 +26,19 @@ export function comprobantesState() {
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
     filtroDesdeHash: '', filtroHastaHash: '', filtroOrden: 'fecha_desc', filtroHash: '',
 
-    // 2. GETTERS COMPUTADOS (Con soporte para arreglos puros y respuestas envueltas)
+    // 2. GETTERS COMPUTADOS
     get sujetoAuditado() { return !this.filtroSocio ? 'CONSOLIDADO GENERAL' : `SOCIO / ENTIDAD: ${this.filtroSocio}`; },
     get saldoAnterior() { return 0.00; },
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
     
     get comprobantesProcesadosYOrdenados() {
-      const lista = Array.isArray(this.items) 
-        ? this.items 
-        : (this.items?.objects || this.items?.comprobantes || []);
-      
-      if (!lista.length) return [];
-
-      return lista.map(item => {
+      if (!Array.isArray(this.items) || this.items.length === 0) return [];
+      return this.items.map(item => {
         try {
           return prepararEdicionComprobante(item, this.loteActivo) || item;
         } catch (err) {
-          console.error('[comprobantesState ⚠️ Error mapeando ítem]:', err, item);
-          return item; // Fallback al objeto crudo para evitar vaciar la grilla
+          console.warn('[comprobantesState ⚠️ Fallo al mapear ítem]:', err);
+          return item;
         }
       });
     },
@@ -58,8 +53,12 @@ export function comprobantesState() {
       });
     },
 
-    // 3. INICIALIZACIÓN Y CARGA DE API
-    async init() { await this.cargarComprobantes(); },
+    // 3. INICIALIZACIÓN DIFERIDA (Pide datos SOLO tras montar Alpine en el DOM)
+    init() {
+      this.$nextTick(async () => {
+        await this.cargarComprobantes();
+      });
+    },
 
     async cargarComprobantes() {
       this.cargando = true;
@@ -69,8 +68,11 @@ export function comprobantesState() {
         desdeHash: this.filtroDesdeHash, hastaHash: this.filtroHastaHash,
         orden: this.filtroOrden, hash: this.filtroHash
       };
-      const res = await obtenerComprobantes(params);
-      this.items = Array.isArray(res) ? res : (res?.objects || res?.comprobantes || []);
+      
+      const raw = (await obtenerComprobantes(params)) || [];
+      const lista = Array.isArray(raw) ? raw : (raw.objects || raw.comprobantes || []);
+      
+      this.items = lista;
       this.comprobantes = this.items;
       this.cargando = false;
     },
