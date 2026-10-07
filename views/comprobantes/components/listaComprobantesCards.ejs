@@ -6,38 +6,14 @@
 
 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-5">
   
-  <!-- BUCLE ALPINE.JS: Llave estable usando index si falla el hash -->
-  <template x-for="(item, index) in comprobantesProcesadosYOrdenados" :key="item.hash_largo || item.hash_corto || index">
+  <!-- BUCLE DIRECTO A ITEMS -->
+  <template x-for="(item, index) in items" :key="item.hash_largo || item.hash_corto || index">
     
-    <!-- Contenedor individual de tarjeta Glaukov -->
-    <div class="bg-[#060c24] border border-[#16224f] hover:border-cyan-500/40 rounded-2xl p-3 md:p-4 shadow-xl flex flex-col justify-between gap-2.5 transition-all relative">
-      
-      <!-- SUB-COMPONENTE 1: Cabecera (Monto local, Divisa, Titular, Banco) -->
-      <%- include('./cardHeader.ejs') %>
-
-      <!-- SUB-COMPONENTE 2: Desglose de Socio 1, Socio 2, Tasas calculadas y herencia ↳ -->
-      <%- include('./cardSociosDetalle.ejs') %>
-
-      <!-- SUB-COMPONENTE 3: Thumbnail R2, Badges de tipo/IA/Lote y acciones -->
-      <%- include('./cardFooterBadges.ejs') %>
-
-    </div>
-  </template>
-
-</div>
-
-<!-- Estado de Carga -->
-<div x-show="cargando" class="col-span-full text-center py-12 text-cyan-400/80 font-mono text-sm animate-pulse">
-  ⚡ Cargando comprobantes procesados...
-</div>
-
-<!-- Grilla de Tarjetas -->
-<div x-cloak x-show="!cargando" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-5">
-  <template x-for="(item, index) in comprobantesProcesadosYOrdenados" :key="item.hash_largo || item.hash_corto || index">
     <div class="bg-[#060c24] border border-[#16224f] hover:border-cyan-500/40 rounded-2xl p-3 md:p-4 shadow-xl flex flex-col justify-between gap-2.5 transition-all relative">
       <%- include('./cardHeader.ejs') %>
       <%- include('./cardSociosDetalle.ejs') %>
       <%- include('./cardFooterBadges.ejs') %>
     </div>
   </template>
+
 </div>
