@@ -1,0 +1,21 @@
+<!-- ================================================================= -->
+<!-- ARCHIVO: AuditoriaComprobantesView.html                           -->
+<!-- UBICACIÓN: views/modules/comprobantes/                            -->
+<!-- RESPONSABILIDAD: Orquestador modular de la vista de Auditoría     -->
+<!-- ================================================================= -->
+
+<div x-data="comprobantesState()" x-init="init()" class="space-y-4">
+
+  <!-- 1. KPIS Y CABECERA DE TITULO -->
+  <%- include('../../components/comprobantes/KpiHeaderAuditoria.html') %>
+
+  <!-- 2. BARRA DE LOS 8 FILTROS -->
+  <%- include('../../components/comprobantes/BarraFiltrosAuditoria.html') %>
+
+  <!-- 3. GRILLA DE COMPROBANTES -->
+  <%- include('../../components/comprobantes/GridComprobantes.html') %>
+
+  <!-- 4. MODAL DE AUDITORÍA Y EDICIÓN -->
+  <%- include('../../components/comprobantes/ModalEditarComprobante.html') %>
+
+</div>
