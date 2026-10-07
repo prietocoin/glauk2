@@ -2,7 +2,8 @@
  * @file tasasNotificacion.service.js
  * @description Servicio atómico de base de datos para la cola de notificaciones de tasas.
  */
-const db = require('../../../../config/db');
+const path = require('path');
+const db = require(path.join(process.cwd(), 'config/db'));
 
 async function obtenerNotificacionActual() {
   const { rows } = await db.query('SELECT * FROM notificaciones_tasas LIMIT 1;');
