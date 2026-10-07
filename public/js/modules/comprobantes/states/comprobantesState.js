@@ -10,21 +10,12 @@ import {
   obtenerME2, 
   obtenerTasaSocioCalculada, 
   claseInsignia 
-} from '../utils/comprobantesFormatters.js';
+} from '../utils/saldosFilterUtils.js';
 
 import { 
   calcularSociosPendientesConsolidado, 
   calcularMovimientoFiltradoTotal 
 } from '../services/saldosCalculatorService.js';
-
-import { 
-  formatMonto, 
-  formatTasa, 
-  obtenerME1, 
-  obtenerME2, 
-  obtenerTasaSocioCalculada, 
-  claseInsignia 
-} from '../utils/comprobantesFormatters.js';
 
 export function comprobantesState() {
   return {
@@ -86,7 +77,7 @@ export function comprobantesState() {
         orden: this.filtroOrden,
         hash: this.filtroHash
       };
-      this.items = (await obtenerComprobantes(params)) || [];
+      this.items = (typeof obtenerComprobantes === 'function' ? await obtenerComprobantes(params) : []) || [];
       this.comprobantes = this.items;
       this.cargando = false;
     },
