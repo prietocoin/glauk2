@@ -26,21 +26,24 @@ export function comprobantesState() {
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
     filtroDesdeHash: '', filtroHastaHash: '', filtroOrden: 'fecha_desc', filtroHash: '',
 
-    // 2. GETTERS COMPUTADOS (Transformación reactiva a prueba de fallos)
+    // 2. GETTERS COMPUTADOS (Con soporte para arreglos puros y respuestas envueltas)
     get sujetoAuditado() { return !this.filtroSocio ? 'CONSOLIDADO GENERAL' : `SOCIO / ENTIDAD: ${this.filtroSocio}`; },
     get saldoAnterior() { return 0.00; },
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
     
     get comprobantesProcesadosYOrdenados() {
-      if (!Array.isArray(this.items) || this.items.length === 0) return [];
-      return this.items.map(item => {
+      const lista = Array.isArray(this.items) 
+        ? this.items 
+        : (this.items?.objects || this.items?.comprobantes || []);
+      
+      if (!lista.length) return [];
+
+      return lista.map(item => {
         try {
-          return typeof prepararEdicionComprobante === 'function' 
-            ? prepararEdicionComprobante(item, this.loteActivo) 
-            : item;
+          return prepararEdicionComprobante(item, this.loteActivo) || item;
         } catch (err) {
-          console.warn('[comprobantesState ⚠️ Fallo al mapear ítem]:', err);
-          return item;
+          console.error('[comprobantesState ⚠️ Error mapeando ítem]:', err, item);
+          return item; // Fallback al objeto crudo para evitar vaciar la grilla
         }
       });
     },
@@ -66,7 +69,8 @@ export function comprobantesState() {
         desdeHash: this.filtroDesdeHash, hastaHash: this.filtroHastaHash,
         orden: this.filtroOrden, hash: this.filtroHash
       };
-      this.items = (await obtenerComprobantes(params)) || [];
+      const res = await obtenerComprobantes(params);
+      this.items = Array.isArray(res) ? res : (res?.objects || res?.comprobantes || []);
       this.comprobantes = this.items;
       this.cargando = false;
     },
