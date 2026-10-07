@@ -2,7 +2,7 @@
  * @file reporteMediaService.js
  * @description Obtiene el JID del socio y reutiliza evolutionClient para enviar reportes visuales.
  */
-const db = require('../../../config/db');
+const db = require('#config/database');
 const { enviarImagenWhatsApp } = require('../../integrations/evolutionClient');
 
 async function obtenerJidSocio(nombreSocio) {
