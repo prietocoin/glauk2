@@ -1,25 +1,29 @@
 /**
  * @file appBootstrap.js
- * @description Bootstrapper estándar de Alpine.js para servidor EJS.
+ * @description Bootstrapper estándar de Alpine.js con rutas modulares para Glauk2.
  */
 
-// 1. CONSTANTES
+// 1. CONSTANTES COMPARTIDAS
 import { LISTA_MONEDAS_ACTIVAS, obtenerInfoMonedasMaestra } from './shared/constants/listaMonedasActivas.js';
 
-// 2. UTILS
-import { calcularTasaEnVivo, obtenerClaseTalla } from './shared/utils/calculoTasaEnVivo.js';
+// 2. MÓDULO: TASAS (Utils & Services)
+import { calcularTasaEnVivo, obtenerClaseTalla } from './modules/tasas/utils/calculoTasaEnVivo.js';
+import { obtenerTasasVigentes } from './modules/tasas/services/tasasMercadoService.js';
+import { despacharTasaIndividual } from './modules/tasas/services/despachoTasaIndividualService.js';
+import { capturarBorradorHoo } from './modules/tasas/services/hooApiService.js';
+import { publicarBorradorTasa, reenviarLoteCompleto } from './modules/tasas/services/publicacionTasasService.js';
 
-// 3. SERVICES (Rutas unificadas hacia shared/services/)
-import { obtenerDirectorioNormalizado } from './shared/services/directorioService.js';
-import { alternarEstadoSocioWA } from './shared/services/socioEstadoService.js';
-import { alternarHerenciaSocio } from './shared/services/socioHerenciaService.js';
-import { obtenerTasasVigentes } from './shared/services/tasasMercadoService.js';
-import { despacharTasaIndividual } from './shared/services/despachoTasaIndividualService.js';
-import { capturarBorradorHoo } from './shared/services/hooApiService.js';
-import { publicarBorradorTasa, reenviarLoteCompleto } from './shared/services/publicacionTasasService.js';
-import { prepararEdicionSocio, guardarConfiguracionSocio } from './shared/services/socioConfigModalService.js';
-import { obtenerComprobantes, prepararEdicionComprobante, guardarCambiosComprobante, eliminarComprobantePorHash } from './shared/services/comprobantesService.js';
-import { solicitarRelecturaIA } from './shared/services/comprobantesIaService.js';
+// 3. MÓDULO: DIRECTORIO (Services)
+import { obtenerDirectorioNormalizado } from './modules/directorio/services/directorioService.js';
+import { alternarEstadoSocioWA } from './modules/directorio/services/socioEstadoService.js';
+import { alternarHerenciaSocio } from './modules/directorio/services/socioHerenciaService.js';
+import { prepararEdicionSocio, guardarConfiguracionSocio } from './modules/directorio/services/socioConfigModalService.js';
+
+// 4. MÓDULO: COMPROBANTES (Services)
+import { obtenerComprobantes, prepararEdicionComprobante, guardarCambiosComprobante, eliminarComprobantePorHash } from './modules/comprobantes/services/comprobantesService.js';
+import { solicitarRelecturaIA } from './modules/comprobantes/services/comprobantesIaService.js';
+
+// 5. SERVICIOS COMPARTIDOS / CONSOLIDADOS
 import { calcularMovimientoFiltradoTotal, calcularSociosPendientesConsolidado } from './shared/services/consolidadoSaldosService.js';
 
 function registrarApp() {
