@@ -1,8 +1,13 @@
 /**
  * @file comprobantesMapperService.js
+ * @path public/js/modules/comprobantes/services/comprobantesMapperService.js
  * @description Normaliza y prepara el objeto de comprobante para su edición en el modal UI.
  */
-import { truncarTasaComercial } from '../utils/truncarTasaComercial.js';
+
+function truncarTasaComercial(val) {
+  const num = parseFloat(val);
+  return isNaN(num) ? 1.0 : Math.floor(num * 10000) / 10000;
+}
 
 export function prepararEdicionComprobante(item, loteActivo = 'T052') {
   if (!item) return null;
