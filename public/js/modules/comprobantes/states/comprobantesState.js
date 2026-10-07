@@ -26,7 +26,7 @@ export function comprobantesState() {
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
     filtroDesdeHash: '', filtroHastaHash: '', filtroOrden: 'fecha_desc', filtroHash: '',
 
-    // 2. GETTERS COMPUTADOS (Seguros contra errores)
+    // 2. GETTERS COMPUTADOS
     get sujetoAuditado() { 
       return (!this.filtroSocio || this.filtroSocio === 'TODOS' || this.filtroSocio === 'TODOS LOS SOCIOS') 
         ? 'CONSOLIDADO GENERAL' 
@@ -35,22 +35,21 @@ export function comprobantesState() {
     get saldoAnterior() { return 0.00; },
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
     
-    // GETTER DE FILTRADO ESTRICTO (Sólo evalúa Socio 1 y Socio 2, descartando Titular del Banco)
+    // GETTER DE FILTRADO ESTRICTO EN MEMORIA
     get comprobantesProcesadosYOrdenados() {
-      const lista = Array.isArray(this.items) ? this.items : [];
-      if (!lista.length) return [];
+      if (!Array.isArray(this.items) || this.items.length === 0) return [];
 
       const socioBuscado = (this.filtroSocio || '').trim().toUpperCase();
 
-      // Si no hay filtro o es 'TODOS', devuelve todos los comprobantes
+      // Si no hay filtro o es 'TODOS', devuelve la lista de items completa
       if (!socioBuscado || socioBuscado === 'TODOS' || socioBuscado === 'TODOS LOS SOCIOS') {
-        return lista;
+        return this.items;
       }
 
-      // Comparación estricta exclusiva sobre Socio 1 y Socio 2
-      return lista.filter(item => {
-        const s1 = String(item?.nombre_socio_1 || item?.socio_1 || '').trim().toUpperCase();
-        const s2 = String(item?.nombre_socio_2 || item?.socio_2 || '').trim().toUpperCase();
+      // Compara ÚNICAMENTE contra Socio 1 y Socio 2 (ignora Titular de banco)
+      return this.items.filter(item => {
+        const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
+        const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
 
         return s1 === socioBuscado || s2 === socioBuscado;
       });
@@ -66,20 +65,7 @@ export function comprobantesState() {
       });
     },
 
-    // Extrae la lista única de socios para el selector dinámico
-    get listaSociosUnicos() {
-      if (!Array.isArray(this.items)) return [];
-      const set = new Set();
-      this.items.forEach(item => {
-        const s1 = item.nombre_socio_1 || item.socio_1;
-        const s2 = item.nombre_socio_2 || item.socio_2;
-        if (s1 && s1 !== 'GENERAL' && s1 !== 'NO DEFINIDO') set.add(s1);
-        if (s2 && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO') set.add(s2);
-      });
-      return Array.from(set).sort();
-    },
-
-    // 3. INICIALIZACIÓN Y CARGA DE DATOS
+    // 3. INICIALIZACIÓN
     init() {
       this.$nextTick(() => {
         this.cargarComprobantes();
@@ -90,7 +76,6 @@ export function comprobantesState() {
       this.cargando = true;
       const limpiarFiltro = (val) => (!val || String(val).toUpperCase() === 'TODOS' || String(val).toUpperCase() === 'TODOS LOS SOCIOS') ? '' : val;
 
-      // Se omiten 'socio' en los parámetros HTTP para que la API no aplique el LIKE en la BD sobre el Titular
       const params = {
         rol: limpiarFiltro(this.filtroRol),
         fechaInicio: this.filtroFechaInicio,
