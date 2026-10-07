@@ -3,20 +3,24 @@
  * @description Bootstrapper estándar de Alpine.js para servidor EJS.
  */
 
+// 1. CONSTANTES
 import { LISTA_MONEDAS_ACTIVAS, obtenerInfoMonedasMaestra } from './shared/constants/listaMonedasActivas.js';
-import { calcularTasaEnVivo, obtenerClaseTalla } from './utils/calculoTasaEnVivo.js';
-import { obtenerDirectorioNormalizado } from './services/directorioService.js';
-import { alternarEstadoSocioWA } from './services/socioEstadoService.js';
-import { alternarHerenciaSocio } from './services/socioHerenciaService.js';
-import { obtenerTasasVigentes } from './services/tasasMercadoService.js';
-import { despacharTasaIndividual } from './services/despachoTasaIndividualService.js';
-import { capturarBorradorHoo } from './services/hooApiService.js';
-import { publicarBorradorTasa, reenviarLoteCompleto } from './services/publicacionTasasService.js';
-import { prepararEdicionSocio, guardarConfiguracionSocio } from './services/socioConfigModalService.js';
-import { obtenerComprobantes, prepararEdicionComprobante, guardarCambiosComprobante, eliminarComprobantePorHash } from './services/comprobantesService.js';
-import { solicitarRelecturaIA } from './services/comprobantesIaService.js';
-import { calcularMovimientoFiltradoTotal, calcularSociosPendientesConsolidado } from './services/consolidadoSaldosService.js';
 
+// 2. UTILS
+import { calcularTasaEnVivo, obtenerClaseTalla } from './shared/utils/calculoTasaEnVivo.js';
+
+// 3. SERVICES
+import { obtenerDirectorioNormalizado } from './shared/services/directorioService.js';
+import { alternarEstadoSocioWA } from './shared/services/socioEstadoService.js';
+import { alternarHerenciaSocio } from './shared/services/socioHerenciaService.js';
+import { obtenerTasasVigentes } from './shared/services/tasasMercadoService.js';
+import { despacharTasaIndividual } from './shared/services/despachoTasaIndividualService.js';
+import { capturarBorradorHoo } from './shared/services/hooApiService.js';
+import { publicarBorradorTasa, reenviarLoteCompleto } from './shared/services/publicacionTasasService.js';
+import { prepararEdicionSocio, guardarConfiguracionSocio } from './shared/services/socioConfigModalService.js';
+import { obtenerComprobantes, prepararEdicionComprobante, guardarCambiosComprobante, eliminarComprobantePorHash } from './shared/services/comprobantesService.js';
+import { solicitarRelecturaIA } from './shared/services/comprobantesIaService.js';
+import { calcularMovimientoFiltradoTotal, calcularSociosPendientesConsolidado } from './shared/services/consolidadoSaldosService.js';
 function registrarApp() {
   Alpine.data('app', () => ({
     vistaActiva: 'dashboard',
