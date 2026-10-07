@@ -1,5 +1,6 @@
 /**
  * @file comprobantesModalActions.js
+ * @path public/js/modules/comprobantes/services/comprobantesModalActions.js
  * @description Acciones atómicas de mutación y flujo para el modal de comprobantes.
  */
 import { 
