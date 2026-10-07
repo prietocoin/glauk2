@@ -17,6 +17,7 @@ import {
 import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
+import { filtrarComprobantesPorSocio, limpiarFiltro } from '../services/comprobantesFilterService.js';
 
 export function comprobantesState() {
   const state = {
@@ -26,7 +27,7 @@ export function comprobantesState() {
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
     filtroDesdeHash: '', filtroHastaHash: '', filtroOrden: 'fecha_desc', filtroHash: '',
 
-    // 2. GETTERS COMPUTADOS (FILTRADO EXCLUSIVO EN SOCIO 1 Y SOCIO 2)
+    // 2. GETTERS COMPUTADOS (Delegación limpia a servicios)
     get sujetoAuditado() { 
       return (!this.filtroSocio || this.filtroSocio === 'TODOS' || this.filtroSocio === 'TODOS LOS SOCIOS') 
         ? 'CONSOLIDADO GENERAL' 
@@ -36,32 +37,7 @@ export function comprobantesState() {
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
     
     get comprobantesProcesadosYOrdenados() {
-      if (!Array.isArray(this.items)) return [];
-
-      const socioBuscado = (this.filtroSocio || '').trim().toUpperCase();
-
-      // Sin filtro seleccionado o 'TODOS': Muestra toda la grilla
-      if (!socioBuscado || socioBuscado === 'TODOS' || socioBuscado === 'TODOS LOS SOCIOS') {
-        return this.items;
-      }
-
-      // Mapeo con el Directorio para considerar alias e hijos por herencia
-      const sociosValidos = new Set([socioBuscado]);
-      if (Array.isArray(this.directorio) && this.directorio.length > 0) {
-        this.directorio.forEach(d => {
-          if (String(d.padre || d.herencia || '').toUpperCase() === socioBuscado || String(d.nombre || '').toUpperCase() === socioBuscado) {
-            if (d.nombre) sociosValidos.add(String(d.nombre).toUpperCase());
-          }
-        });
-      }
-
-      // FILTRADO ESTRICTO: Solo evalúa Socio 1 y Socio 2 (Descarta 100% el Titular Bancario)
-      return this.items.filter(item => {
-        const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
-        const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
-
-        return sociosValidos.has(s1) || sociosValidos.has(s2);
-      });
+      return filtrarComprobantesPorSocio(this.items, this.directorio, this.filtroSocio);
     },
 
     get movimientoFiltradoTotal() { 
@@ -74,7 +50,7 @@ export function comprobantesState() {
       });
     },
 
-    // 3. INICIALIZACIÓN
+    // 3. INICIALIZACIÓN Y API
     init() {
       this.$nextTick(() => {
         this.cargarComprobantes();
@@ -83,9 +59,7 @@ export function comprobantesState() {
 
     async cargarComprobantes() {
       this.cargando = true;
-      const limpiarFiltro = (val) => (!val || String(val).toUpperCase() === 'TODOS' || String(val).toUpperCase() === 'TODOS LOS SOCIOS') ? '' : val;
 
-      // Traemos los datos sin enviar 'socio' al API para evitar el LIKE '%ADA%' del backend sobre el Titular
       const params = {
         rol: limpiarFiltro(this.filtroRol),
         fechaInicio: this.filtroFechaInicio,
