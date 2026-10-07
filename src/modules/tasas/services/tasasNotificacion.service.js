@@ -3,7 +3,7 @@
  * @description Servicio atómico de base de datos para la cola de notificaciones de tasas.
  */
 const path = require('path');
-const db = require(path.join(process.cwd(), 'config/db'));
+const db = require(path.resolve(__dirname, '../../../../config/db'));
 
 async function obtenerNotificacionActual() {
   const { rows } = await db.query('SELECT * FROM notificaciones_tasas LIMIT 1;');
