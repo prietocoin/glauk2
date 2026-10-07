@@ -25,19 +25,34 @@ export function comprobantesState() {
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
     filtroDesdeHash: '', filtroHastaHash: '', filtroOrden: 'fecha_desc', filtroHash: '',
 
-    // 2. GETTERS COMPUTADOS
+    // 2. GETTERS COMPUTADOS (Transformación reactiva)
     get sujetoAuditado() { return !this.filtroSocio ? 'CONSOLIDADO GENERAL' : `SOCIO / ENTIDAD: ${this.filtroSocio}`; },
     get saldoAnterior() { return 0.00; },
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
-    get comprobantesProcesadosYOrdenados() { return this.items; },
-    get movimientoFiltradoTotal() { return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio); },
+    
+    get comprobantesProcesadosYOrdenados() {
+      if (!Array.isArray(this.items) || this.items.length === 0) return [];
+      return this.items.map(item => {
+        try {
+          return prepararEdicionComprobante(item, this.loteActivo);
+        } catch (err) {
+          console.warn('[comprobantesState ⚠️ Error al mapear ítem]:', err, item);
+          return item;
+        }
+      });
+    },
+
+    get movimientoFiltradoTotal() { 
+      return calcularMovimientoFiltradoTotal(this.comprobantesProcesadosYOrdenados, this.filtroSocio); 
+    },
+
     get sociosPendientesConsolidado() {
-      return calcularSociosPendientesConsolidado(this.directorio, this.items, {
+      return calcularSociosPendientesConsolidado(this.directorio, this.comprobantesProcesadosYOrdenados, {
         fechaInicio: this.filtroFechaInicio, fechaFin: this.filtroFechaFin
       });
     },
 
-    // 3. INICIALIZACIÓN Y CARGA DE API
+    // 3. INICIALIZACIÓN Y CARGA ASÍNCRONA DE API
     async init() { await this.cargarComprobantes(); },
 
     async cargarComprobantes() {
@@ -49,8 +64,8 @@ export function comprobantesState() {
         orden: this.filtroOrden, hash: this.filtroHash
       };
       const rawItems = (await obtenerComprobantes(params)) || [];
-      this.items = rawItems.map(item => prepararEdicionComprobante(item, this.loteActivo));
-      this.comprobantes = this.items;
+      this.items = rawItems;
+      this.comprobantes = rawItems;
       this.cargando = false;
     },
 
