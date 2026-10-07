@@ -32,12 +32,13 @@ export function comprobantesState() {
     get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
     
     get comprobantesProcesadosYOrdenados() {
-      if (!Array.isArray(this.items) || this.items.length === 0) return [];
-      return this.items.map(item => {
+      const lista = Array.isArray(this.items) ? this.items : [];
+      if (!lista.length) return [];
+
+      return lista.map(item => {
         try {
           return prepararEdicionComprobante(item, this.loteActivo) || item;
-        } catch (err) {
-          console.warn('[comprobantesState ⚠️ Fallo al mapear ítem]:', err);
+        } catch (e) {
           return item;
         }
       });
@@ -53,20 +54,28 @@ export function comprobantesState() {
       });
     },
 
-    // 3. INICIALIZACIÓN DIFERIDA (Pide datos SOLO tras montar Alpine en el DOM)
+    // 3. INICIALIZACIÓN SECUENCIAL (Carga diferida pos-montaje DOM)
     init() {
-      this.$nextTick(async () => {
-        await this.cargarComprobantes();
-      });
+      setTimeout(() => {
+        this.cargarComprobantes();
+      }, 100);
     },
 
     async cargarComprobantes() {
       this.cargando = true;
+      
+      // Sanitización de filtros para evitar considerar 'TODOS' como valor literal de búsqueda
+      const limpiarFiltro = (val) => (!val || val.toUpperCase() === 'TODOS') ? '' : val;
+
       const params = {
-        rol: this.filtroRol, socio: this.filtroSocio,
-        fechaInicio: this.filtroFechaInicio, fechaFin: this.filtroFechaFin,
-        desdeHash: this.filtroDesdeHash, hastaHash: this.filtroHastaHash,
-        orden: this.filtroOrden, hash: this.filtroHash
+        rol: limpiarFiltro(this.filtroRol),
+        socio: limpiarFiltro(this.filtroSocio),
+        fechaInicio: this.filtroFechaInicio,
+        fechaFin: this.filtroFechaFin,
+        desdeHash: limpiarFiltro(this.filtroDesdeHash),
+        hastaHash: limpiarFiltro(this.filtroHastaHash),
+        orden: this.filtroOrden,
+        hash: this.filtroHash
       };
       
       const raw = (await obtenerComprobantes(params)) || [];
