@@ -44,7 +44,9 @@ export function comprobantesState() {
     get saldoAnterior() {
       return 0.00;
     },
-
+    get saldoActualTotal() {
+      return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0);
+    },
     get comprobantesProcesadosYOrdenados() {
       return this.items;
     },
