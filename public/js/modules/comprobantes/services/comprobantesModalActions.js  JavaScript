@@ -2,6 +2,11 @@
  * @file comprobantesModalActions.js
  * @description Acciones atómicas de mutación y flujo para el modal de comprobantes.
  */
+import { 
+  guardarCambiosComprobante, 
+  eliminarComprobantePorHash, 
+  solicitarRelecturaIA 
+} from './comprobantesAccionesApiService.js';
 
 export function crearAccionesModal(state) {
   return {
