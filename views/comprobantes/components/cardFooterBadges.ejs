@@ -7,7 +7,7 @@
 <div class="flex items-stretch gap-2 h-48 sm:h-56 md:h-60">
   
   <!-- VISOR DE IMAGEN R2 (70% de ancho con alto responsive) -->
-  <div class="w-[70%] shrink-0 bg-[#010309] border border-blue-900/60 rounded-xl overflow-hidden p-1 flex items-center justify-center relative group">
+  <div class="w-[60%] shrink-0 bg-[#010309] border border-blue-900/60 rounded-xl overflow-hidden p-1 flex items-center justify-center relative group">
     <button @click="abrirModalEdicion(item)" class="w-full h-full flex items-center justify-center" title="Ampliar / Auditar recibo">
       <template x-if="item.url_r2 || item.url_imagen">
         <img :src="item.url_r2 || item.url_imagen" class="w-full h-full object-contain rounded-lg opacity-90 group-hover:opacity-100 transition-opacity" alt="Recibo">
