@@ -14,6 +14,7 @@ router.get('/', obtenerTasaActualController);
 router.get('/actual', obtenerTasaActualController);
 router.get('/mercado', obtenerTasaActualController);
 router.get('/ultimas', obtenerTasaActualController);
+router.get('/vigentes', obtenerTasaActualController);
 
 // Publicación y despacho
 router.post('/publicar', publicarYDespacharTasaController);
