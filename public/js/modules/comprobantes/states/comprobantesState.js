@@ -10,7 +10,7 @@ import {
   obtenerME2, 
   obtenerTasaSocioCalculada, 
   claseInsignia 
-} from '../utils/saldosFilterUtils.js';
+} from '../utils/comprobantesFormatters.js';
 
 import { 
   calcularSociosPendientesConsolidado, 
