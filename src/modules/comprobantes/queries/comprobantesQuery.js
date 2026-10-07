@@ -2,7 +2,7 @@
  * @file comprobantesQuery.js
  * @description Consulta SQL de lectura pura para comprobantes.
  */
-const db = require('../../../../config/db');
+const db = require('#config/database');
 
 async function obtenerComprobantesCompletos(socio = null) {
   const params = [];
