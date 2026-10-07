@@ -6,7 +6,7 @@
 import { createRouterState } from './shared/states/routerState.js';
 import { createTasasState } from './modules/tasas/states/tasasState.js';
 import { createDirectorioState } from './modules/directorio/states/directorioState.js';
-import { createComprobantesState } from './modules/comprobantes/states/comprobantesState.js';
+import { comprobantesState } from './modules/comprobantes/states/comprobantesState.js';
 
 function registrarApp() {
   Alpine.data('app', () => ({
@@ -14,7 +14,7 @@ function registrarApp() {
     ...createRouterState(),
     ...createTasasState(),
     ...createDirectorioState(),
-    ...createComprobantesState(),
+    ...comprobantesState(),
 
     // Inicialización global del ciclo de vida
     async init() {
