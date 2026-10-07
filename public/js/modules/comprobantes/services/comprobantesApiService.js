@@ -1,8 +1,13 @@
 /**
  * @file comprobantesApiService.js
- * @description Peticiones HTTP REST para la gestión de comprobantes en glauk2.
+ * @description Peticiones HTTP REST unificadas para el dominio de comprobantes en glauk2.
  */
 
+/**
+ * Consulta la lista de comprobantes aplicando los filtros activos de la UI.
+ * @param {Object} params - Objeto de filtros (socio, rol, fechas, hash, orden).
+ * @returns {Promise<Array>}
+ */
 export async function obtenerComprobantes(params = {}) {
   try {
     const query = new URLSearchParams(params).toString();
@@ -16,6 +21,13 @@ export async function obtenerComprobantes(params = {}) {
   }
 }
 
+/**
+ * Guarda las modificaciones de un comprobante hacia la API backend.
+ * @param {string} hashLargo - Identificador único del comprobante.
+ * @param {Object} itemEdicion - Datos del formulario editado.
+ * @param {string} loteActivo - Lote de tasa por defecto.
+ * @returns {Promise<boolean>}
+ */
 export async function guardarCambiosComprobante(hashLargo, itemEdicion, loteActivo = 'T052') {
   if (!hashLargo || !itemEdicion) return false;
 
@@ -60,6 +72,11 @@ export async function guardarCambiosComprobante(hashLargo, itemEdicion, loteActi
   }
 }
 
+/**
+ * Elimina de forma permanente un comprobante por su hash único.
+ * @param {string} hashLargo - Hash del comprobante.
+ * @returns {Promise<boolean>}
+ */
 export async function eliminarComprobantePorHash(hashLargo) {
   if (!hashLargo || !confirm('¿Deseas eliminar este comprobante?')) return false;
   try {
@@ -70,6 +87,32 @@ export async function eliminarComprobantePorHash(hashLargo) {
     return Boolean(response.ok && res.success);
   } catch (err) {
     console.error('[comprobantesApiService ❌ Error al eliminar comprobante]:', err);
+    return false;
+  }
+}
+
+/**
+ * Solicita al backend la re-evaluación IA de un comprobante.
+ * @param {string} hashLargo - Identificador único del comprobante.
+ * @returns {Promise<boolean>}
+ */
+export async function solicitarRelecturaIA(hashLargo) {
+  if (!hashLargo) return false;
+  if (!confirm('¿Deseas enviar este comprobante a re-lectura con Gemini?')) return false;
+
+  try {
+    const response = await fetch(`/api/comprobantes/releer-ia/${encodeURIComponent(hashLargo)}`, {
+      method: 'POST'
+    });
+    const res = await response.json();
+    if (response.ok && (res.success || res.status === 'SUCCESS')) {
+      alert('⚡ Comprobante encolado para re-lectura IA.');
+      return true;
+    }
+    throw new Error(res.error || 'Error al procesar re-lectura');
+  } catch (err) {
+    console.error('[comprobantesApiService ❌ Error en re-lectura IA]:', err);
+    alert('Error: ' + err.message);
     return false;
   }
 }
