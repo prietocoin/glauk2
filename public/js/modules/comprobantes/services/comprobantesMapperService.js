@@ -1,7 +1,7 @@
 /**
  * @file comprobantesMapperService.js
  * @path public/js/modules/comprobantes/services/comprobantesMapperService.js
- * @description Normaliza y prepara el objeto de comprobante para su edición en el modal UI.
+ * @description Normaliza y prepara el objeto de comprobante para la UI y el modal.
  */
 
 function truncarTasaComercial(val) {
@@ -32,7 +32,9 @@ export function prepararEdicionComprobante(item, loteActivo = 'T052') {
     referencia: item.referencia && item.referencia !== '-' ? item.referencia : '',
     titular: item.titular && item.titular !== '-' ? item.titular : '',
     nombre_socio_1: fallbackSocio1,
+    socio_1: item.socio_1 || fallbackSocio1,
     nombre_socio_2: fallbackSocio2,
+    socio_2: item.socio_2 || fallbackSocio2,
     tipo_manual: tipoOpBruto,
     moneda: (item.moneda || item.moneda_local || 'COP').toUpperCase(),
     monto: fallbackMonto,
