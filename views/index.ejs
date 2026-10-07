@@ -66,6 +66,7 @@
       <!-- VISTA 1: AUDITORÍA DE COMPROBANTES -->
       <div x-show="vistaActiva === 'comprobantes'" class="space-y-3 md:space-y-4">
         <%- include('./comprobantes/components/headerKPIs.ejs') %>
+        <%- include('./comprobantes/components/barraFiltrosAuditoria.ejs') %>
         <%- include('./comprobantes/components/listaComprobantesCards.ejs') %>
       </div>
 
