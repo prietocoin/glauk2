@@ -2,7 +2,7 @@
  * @file directorioController.js
  * @description Controlador HTTP atómico para la gestión del directorio de socios en glauk2.
  */
-const directorioService = require('../services/directorio.service');
+const directorioService = require('#modules/directorio/services/directorio.service');
 
 async function getDirectorio(req, res) {
   try {
