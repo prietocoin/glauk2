@@ -2,8 +2,7 @@
  * @file reporteFiltrosQuery.js
  * @description Capa de datos atómica para la consulta de roles, entidades y hashes de reportes.
  */
-const db = require('../../../config/db');
-
+const db = require('#config/database');
 async function obtenerFiltrosReportes(rolParam) {
   const rolesQuery = `
     SELECT DISTINCT UPPER(TRIM(rol)) AS rol 
