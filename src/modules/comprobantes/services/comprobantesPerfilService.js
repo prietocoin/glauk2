@@ -2,7 +2,7 @@
  * @file comprobantesPerfilService.js
  * @description Carga de perfiles de socios (incluyendo FUNDDA) y tasas para snapshots.
  */
-const db = require('../../../../config/db');
+const db = require('#config/database');
 const { obtenerTasaPorId, obtenerUltimasTasas } = require('../../mercado/services/mercadoService');
 
 async function cargarContextoSnapshot(socio1Nombre, socio2Nombre, idLote) {
