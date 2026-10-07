@@ -2,7 +2,7 @@
  * @file liquidacionSnapshot.service.js
  * @description Servicio atómico para obtención de datos, cálculo y congelado de comprobantes.
  */
-const db = require('../../../config/db');
+const db = require('#config/db');
 const { calcularSnapshotFinanciero } = require('./liquidacion.service');
 const mercadoService = require('./mercado.service');
 
