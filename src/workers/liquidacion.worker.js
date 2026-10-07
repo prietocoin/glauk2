@@ -3,7 +3,7 @@
  * @description Worker BullMQ desacoplado para congelamiento de snapshots en glauk2.
  */
 const { Worker, Queue } = require('bullmq');
-const redisConnection = require('../config/redis');
+const redis = require('#config/redis');
 const { procesarSnapshotComprobante } = require('../modules/atenea/services/liquidacionSnapshot.service');
 
 const liquidacionQueue = new Queue('cola-liquidaciones', { connection: redisConnection });
