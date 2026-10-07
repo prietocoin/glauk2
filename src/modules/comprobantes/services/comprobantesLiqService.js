@@ -2,7 +2,7 @@
  * @file comprobantesLiqService.js
  * @description Persistencia y congelamiento de snapshots en comprobantes_liq.
  */
-const db = require('../../../../config/db');
+const db = require('#config/database');
 
 async function liquidarComprobante(payload) {
   const {
