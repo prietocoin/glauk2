@@ -19,12 +19,11 @@ import { alternarEstadoSocioWA } from './modules/directorio/services/socioEstado
 import { alternarHerenciaSocio } from './modules/directorio/services/socioHerenciaService.js';
 import { prepararEdicionSocio, guardarConfiguracionSocio } from './modules/directorio/services/socioConfigModalService.js';
 
-// 4. MÓDULO: COMPROBANTES (Services)
-import { obtenerComprobantes, prepararEdicionComprobante, guardarCambiosComprobante, eliminarComprobantePorHash } from './modules/comprobantes/services/comprobantesService.js';
+// 4. MÓDULO: COMPROBANTES (Services & Utils Reestructurados)
+import { obtenerComprobantes, prepararEdicionComprobante, guardarCambiosComprobante, eliminarComprobantePorHash } from './modules/comprobantes/services/comprobantesApiService.js';
 import { solicitarRelecturaIA } from './modules/comprobantes/services/comprobantesIaService.js';
-
-// 5. SERVICIOS COMPARTIDOS / CONSOLIDADOS
-import { calcularMovimientoFiltradoTotal, calcularSociosPendientesConsolidado } from './shared/services/consolidadoSaldosService.js';
+import { calcularSociosPendientesConsolidado } from './modules/comprobantes/services/saldosCalculatorService.js';
+import { calcularMovimientoFiltradoTotal } from './modules/comprobantes/utils/saldosFilterUtils.js';
 
 function registrarApp() {
   Alpine.data('app', () => ({
