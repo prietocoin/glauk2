@@ -3,7 +3,7 @@
  * @description Orquestador de actualización de comprobantes y snapshots automáticos.
  */
 const db = require('#config/database');
-const liquidacionService = require('#modules/comprobantes/services/liquidacion.service');
+const liquidacionService = require('#modules/comprobantes/services/liquidacionSnapshot.service');
 const { liquidarComprobante } = require('./comprobantesLiqService');
 const { cargarContextoSnapshot } = require('./comprobantesPerfilService');
 
