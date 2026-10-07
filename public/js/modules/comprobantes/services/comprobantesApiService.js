@@ -1,33 +1,8 @@
 /**
- * @file comprobantesApiService.js
- * @description Peticiones HTTP REST unificadas para el dominio de comprobantes en glauk2.
+ * @file comprobantesAccionesApiService.js
+ * @description Operaciones HTTP de guardado, eliminación y re-lectura IA para comprobantes.
  */
 
-/**
- * Consulta la lista de comprobantes aplicando los filtros activos de la UI.
- * @param {Object} params - Objeto de filtros (socio, rol, fechas, hash, orden).
- * @returns {Promise<Array>}
- */
-export async function obtenerComprobantes(params = {}) {
-  try {
-    const query = new URLSearchParams(params).toString();
-    const response = await fetch(`/api/comprobantes${query ? `?${query}` : ''}`);
-    if (!response.ok) throw new Error('Error al consultar comprobantes');
-    const res = await response.json();
-    return Array.isArray(res) ? res : [];
-  } catch (err) {
-    console.error('[comprobantesApiService ❌ Error al obtener comprobantes]:', err);
-    return [];
-  }
-}
-
-/**
- * Guarda las modificaciones de un comprobante hacia la API backend.
- * @param {string} hashLargo - Identificador único del comprobante.
- * @param {Object} itemEdicion - Datos del formulario editado.
- * @param {string} loteActivo - Lote de tasa por defecto.
- * @returns {Promise<boolean>}
- */
 export async function guardarCambiosComprobante(hashLargo, itemEdicion, loteActivo = 'T052') {
   if (!hashLargo || !itemEdicion) return false;
 
@@ -67,16 +42,11 @@ export async function guardarCambiosComprobante(hashLargo, itemEdicion, loteActi
     const res = await response.json();
     return Boolean(response.ok && (res.success || res.status === 'SUCCESS'));
   } catch (err) {
-    console.error('[comprobantesApiService ❌ Error al guardar comprobante]:', err);
+    console.error('[comprobantesAccionesApiService ❌ Error al guardar comprobante]:', err);
     return false;
   }
 }
 
-/**
- * Elimina de forma permanente un comprobante por su hash único.
- * @param {string} hashLargo - Hash del comprobante.
- * @returns {Promise<boolean>}
- */
 export async function eliminarComprobantePorHash(hashLargo) {
   if (!hashLargo || !confirm('¿Deseas eliminar este comprobante?')) return false;
   try {
@@ -86,16 +56,11 @@ export async function eliminarComprobantePorHash(hashLargo) {
     const res = await response.json();
     return Boolean(response.ok && res.success);
   } catch (err) {
-    console.error('[comprobantesApiService ❌ Error al eliminar comprobante]:', err);
+    console.error('[comprobantesAccionesApiService ❌ Error al eliminar comprobante]:', err);
     return false;
   }
 }
 
-/**
- * Solicita al backend la re-evaluación IA de un comprobante.
- * @param {string} hashLargo - Identificador único del comprobante.
- * @returns {Promise<boolean>}
- */
 export async function solicitarRelecturaIA(hashLargo) {
   if (!hashLargo) return false;
   if (!confirm('¿Deseas enviar este comprobante a re-lectura con Gemini?')) return false;
@@ -111,7 +76,7 @@ export async function solicitarRelecturaIA(hashLargo) {
     }
     throw new Error(res.error || 'Error al procesar re-lectura');
   } catch (err) {
-    console.error('[comprobantesApiService ❌ Error en re-lectura IA]:', err);
+    console.error('[comprobantesAccionesApiService ❌ Error en re-lectura IA]:', err);
     alert('Error: ' + err.message);
     return false;
   }
