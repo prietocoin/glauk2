@@ -1,8 +1,7 @@
 <!-- ================================================================= -->
-<!-- ARCHIVO: CardFooterBadges.html                                    -->
+<!-- ARCHIVO: CardFooterBadges.html                                   -->
 <!-- UBICACIÓN: views/components/comprobantes/                         -->
 <!-- RESPONSABILIDAD: Recibo R2, insignias x2 / ME1 / ME2 y acciones   -->
-<!-- LÍNEAS APROX: ~45 líneas                                         -->
 <!-- ================================================================= -->
 
 <div class="flex items-stretch gap-2.5 h-44 sm:h-48">
@@ -26,18 +25,17 @@
     <span class="w-full text-center py-0.5 rounded bg-slate-800/90 text-slate-300 font-mono text-[9px] md:text-[10px] font-bold border border-slate-700 truncate px-1 shadow" 
           title="Hash de verificación" x-text="item.hash_corto || (item.hash_largo ? item.hash_largo.substring(0,8) : 'HASH')"></span>
     
-    <!-- Tipo de Operación usando claseInsignia() + Badge x2 -->
+    <!-- Tipo de Operación & Badge x2 -->
     <div class="flex gap-1 w-full">
       <span class="flex-1 text-center py-0.5 rounded text-[9px] font-bold border whitespace-nowrap" 
             :class="claseInsignia((item.tipo_op_socio || item.tipo_op || item.tipo_manual || 'D').split('-')[0])" 
             x-text="(item.tipo_op_socio || item.tipo_op || item.tipo_manual || 'D').split('-')[0]"></span>
       
-      <!-- Badge x2 visible si existe Socio 2 -->
       <span x-show="(item.socio_2 || item.nombre_socio_2) && (item.socio_2 || item.nombre_socio_2) !== 'GENERAL' && (item.socio_2 || item.nombre_socio_2) !== 'NO DEFINIDO'" 
             class="flex-1 text-center py-0.5 rounded bg-amber-950 text-amber-300 text-[9px] font-bold border border-amber-500/40 whitespace-nowrap">x2</span>
     </div>
 
-    <!-- Lote de Tasa asignado & Status IA -->
+    <!-- Lote de Tasa & Status IA -->
     <div class="flex gap-1 w-full">
       <span class="flex-1 text-center py-0.5 rounded bg-purple-950 text-purple-300 text-[8px] md:text-[9px] font-bold border border-purple-500/40 truncate px-0.5" 
             x-text="item.id_tasa || item.lote_tasa_asignado || item.lote_tasa || 'T-ND'"></span>
@@ -45,14 +43,14 @@
       <span x-show="item.procesado_ia" class="flex-1 text-center py-0.5 rounded bg-emerald-950 text-emerald-300 text-[9px] font-bold border border-emerald-500/40 flex items-center justify-center whitespace-nowrap">✓ IA</span>
     </div>
 
-    <!-- ME1 / ME2 llamando directamente a los getters del controller -->
+    <!-- ME1 / ME2 -->
     <div class="flex flex-col gap-0.5 mt-auto">
       <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-200 font-mono text-[9px] md:text-[10px] font-bold border border-slate-700/60 shadow truncate px-0.5" 
-           x-text="'ME1:' + formatMonto(obtenerME1(item))"></div>
+           x-text="'ME1: ' + formatMonto(obtenerME1(item))"></div>
       
       <template x-if="(item.socio_2 || item.nombre_socio_2) && (item.socio_2 || item.nombre_socio_2) !== 'GENERAL' && (item.socio_2 || item.nombre_socio_2) !== 'NO DEFINIDO'">
         <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-200 font-mono text-[9px] md:text-[10px] font-bold border border-slate-700/60 shadow truncate px-0.5" 
-             x-text="'ME2:' + formatMonto(obtenerME2(item))"></div>
+             x-text="'ME2: ' + formatMonto(obtenerME2(item))"></div>
       </template>
     </div>
 
