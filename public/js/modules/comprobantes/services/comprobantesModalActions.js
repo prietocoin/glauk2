@@ -8,32 +8,31 @@ import {
   eliminarComprobantePorHash, 
   solicitarRelecturaIA 
 } from './comprobantesApiService.js';
+import { prepararEdicionComprobante } from './comprobantesMapperService.js';
 
 export function crearAccionesModal(state) {
   return {
     abrirModal(item) {
-      state.itemEdicion = typeof prepararEdicionComprobante === 'function' 
-        ? prepararEdicionComprobante(item, state.loteActivo) 
-        : item;
+      state.itemEdicion = prepararEdicionComprobante(item, state.loteActivo);
       state.modalAbierto = true;
     },
 
     async guardarCambios() {
-      if (typeof guardarCambiosComprobante === 'function' && await guardarCambiosComprobante(state.itemEdicion?.hash_largo, state.itemEdicion, state.loteActivo)) {
+      if (await guardarCambiosComprobante(state.itemEdicion?.hash_largo, state.itemEdicion, state.loteActivo)) {
         state.modalAbierto = false;
         await state.cargarComprobantes();
       }
     },
 
     async releerIAModal() {
-      if (typeof solicitarRelecturaIA === 'function' && await solicitarRelecturaIA(state.itemEdicion?.hash_largo)) {
+      if (await solicitarRelecturaIA(state.itemEdicion?.hash_largo)) {
         state.modalAbierto = false;
         await state.cargarComprobantes();
       }
     },
 
     async eliminarComprobante(hashLargo) {
-      if (typeof eliminarComprobantePorHash === 'function' && await eliminarComprobantePorHash(hashLargo)) {
+      if (await eliminarComprobantePorHash(hashLargo)) {
         state.modalAbierto = false;
         await state.cargarComprobantes();
       }
