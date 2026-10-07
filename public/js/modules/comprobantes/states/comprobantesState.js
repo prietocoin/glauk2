@@ -1,7 +1,7 @@
 /**
  * @file comprobantesState.js
  * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Átomo de estado reactivo Alpine.js para la auditoría de comprobantes.
+ * @description Átomo de estado reactivo Alpine.js sincronizado con el HTML del motor Atenea.
  */
 
 import { 
@@ -20,38 +20,38 @@ import { prepararEdicionComprobante } from '../services/comprobantesMapperServic
 
 export function comprobantesState() {
   const state = {
-    // 1. PROPIEDADES REACTIVAS
+    // 1. PROPIEDADES REACTIVAS CON LOS NOMBRES EXACTOS DE TU HTML
     items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
     loteActivo: 'T052',
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
-    filtroDesdeHash: '', filtroHastaHash: '', filtroOrden: 'fecha_desc', filtroHash: '',
+    filtroDesdeHash: '', filtroHastaHash: '', ordenarPor: 'fecha_desc', filtroHashBusqueda: '',
+    saldoAnterior: 0,
 
     // 2. GETTERS COMPUTADOS
     get sujetoAuditado() { 
-      return (!this.filtroSocio || this.filtroSocio === 'TODOS' || this.filtroSocio === 'TODOS LOS SOCIOS') 
-        ? 'CONSOLIDADO GENERAL' 
-        : `SOCIO / ENTIDAD: ${this.filtroSocio}`; 
+      return this.filtroSocio ? this.filtroSocio.toUpperCase() : 'TODOS LOS SOCIOS'; 
     },
-    get saldoAnterior() { return 0.00; },
-    get saldoActualTotal() { return (this.saldoAnterior || 0) + (this.movimientoFiltradoTotal || 0); },
     
-    // GETTER DE FILTRADO ESTRICTO EN MEMORIA
+    get saldoActualTotal() { 
+      return (parseFloat(this.saldoAnterior) || 0) + this.movimientoFiltradoTotal; 
+    },
+
+    // GETTER DE FILTRADO ESTRICTO (Filtra solo por Socio 1 y Socio 2)
     get comprobantesProcesadosYOrdenados() {
-      if (!Array.isArray(this.items) || this.items.length === 0) return [];
+      const lista = Array.isArray(this.items) ? this.items : [];
+      if (!lista.length) return [];
 
-      const socioBuscado = (this.filtroSocio || '').trim().toUpperCase();
+      const socioTarget = (this.filtroSocio || '').trim().toUpperCase();
 
-      // Si no hay filtro o es 'TODOS', devuelve la lista de items completa
-      if (!socioBuscado || socioBuscado === 'TODOS' || socioBuscado === 'TODOS LOS SOCIOS') {
-        return this.items;
+      if (!socioTarget || socioTarget === 'TODOS' || socioTarget === 'TODOS LOS SOCIOS') {
+        return lista;
       }
 
-      // Compara ÚNICAMENTE contra Socio 1 y Socio 2 (ignora Titular de banco)
-      return this.items.filter(item => {
-        const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
-        const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
-
-        return s1 === socioBuscado || s2 === socioBuscado;
+      // Descarta 100% las coincidencias en Titulares Bancarios
+      return lista.filter(item => {
+        const s1 = (item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
+        const s2 = (item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
+        return s1 === socioTarget || s2 === socioTarget;
       });
     },
 
@@ -65,42 +65,49 @@ export function comprobantesState() {
       });
     },
 
-    // 3. INICIALIZACIÓN
+    // 3. ACCIONES Y COMUNICACIÓN CON API
     init() {
       this.$nextTick(() => {
         this.cargarComprobantes();
       });
     },
 
-    async cargarComprobantes() {
-      this.cargando = true;
-      const limpiarFiltro = (val) => (!val || String(val).toUpperCase() === 'TODOS' || String(val).toUpperCase() === 'TODOS LOS SOCIOS') ? '' : val;
+    actualizarSocioSeleccionado() {
+      const socioNom = (this.filtroSocio || '').trim().toUpperCase();
+      if (socioNom) {
+        const socioFound = (this.directorio || []).find(d => (d.nombre || '').trim().toUpperCase() === socioNom);
+        const saldoVal = socioFound?.saldo_inicial ?? socioFound?.saldo_anterior;
+        this.saldoAnterior = (saldoVal !== undefined && saldoVal !== null) ? parseFloat(saldoVal) || 0 : 0;
+      } else {
+        this.saldoAnterior = 0;
+      }
+    },
 
-      const params = {
-        rol: limpiarFiltro(this.filtroRol),
-        fechaInicio: this.filtroFechaInicio,
-        fechaFin: this.filtroFechaFin,
-        desdeHash: limpiarFiltro(this.filtroDesdeHash),
-        hastaHash: limpiarFiltro(this.filtroHastaHash),
-        orden: this.filtroOrden,
-        hash: this.filtroHash
-      };
-      
+    async cargarComprobantes(silencioso = false) {
+      this.cargando = true;
+
+      const params = {};
+      if (this.filtroRol) params.rol = this.filtroRol;
+      if (this.filtroFechaInicio) params.fechaInicio = this.filtroFechaInicio;
+      if (this.filtroFechaFin) params.fechaFin = this.filtroFechaFin;
+      if (this.filtroHashBusqueda) params.hash = this.filtroHashBusqueda;
+      if (this.ordenarPor) params.orden = this.ordenarPor;
+
       const raw = (await obtenerComprobantes(params)) || [];
       const lista = Array.isArray(raw) ? raw : (raw.objects || raw.comprobantes || []);
-      
+
       this.items = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
       this.comprobantes = this.items;
       this.cargando = false;
     },
 
-    // 4. FORMATEADORES ATÓMICOS
-    formatMonto: (v) => typeof formatMonto === 'function' ? formatMonto(v || 0) : String(v || 0),
-    formatTasa: (v) => typeof formatTasa === 'function' ? formatTasa(v || 1) : String(v || 1),
-    obtenerME1: (item) => typeof obtenerME1 === 'function' ? obtenerME1(item) : (item?.me1 || 0),
-    obtenerME2: (item) => typeof obtenerME2 === 'function' ? obtenerME2(item) : (item?.me2 || 0),
-    obtenerTasaSocioCalculada: (item, n) => typeof obtenerTasaSocioCalculada === 'function' ? obtenerTasaSocioCalculada(item, n) : 1,
-    claseInsignia: (t) => typeof claseInsignia === 'function' ? claseInsignia(t) : 'bg-slate-800 text-slate-200'
+    // 4. FORMATEADORES IMPORTADOS DIRECTAMENTE
+    formatMonto,
+    formatTasa,
+    obtenerME1,
+    obtenerME2,
+    obtenerTasaSocioCalculada,
+    claseInsignia
   };
 
   Object.assign(state, crearAccionesModal(state));
