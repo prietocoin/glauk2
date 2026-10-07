@@ -50,6 +50,19 @@ export function comprobantesState() {
       });
     },
 
+    // FALLBACK: Extrae socios únicos dinámicamente si el directorio no ha cargado
+    get listaSociosUnicos() {
+      if (!Array.isArray(this.items)) return [];
+      const set = new Set();
+      this.items.forEach(item => {
+        const s1 = item.nombre_socio_1 || item.socio_1;
+        const s2 = item.nombre_socio_2 || item.socio_2;
+        if (s1 && s1 !== 'GENERAL' && s1 !== 'NO DEFINIDO') set.add(s1);
+        if (s2 && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO') set.add(s2);
+      });
+      return Array.from(set).sort();
+    },
+
     // 3. INICIALIZACIÓN Y API
     init() {
       this.$nextTick(() => {
