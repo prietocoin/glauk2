@@ -5,6 +5,10 @@
   "scripts": {
     "start": "node server.js"
   },
+  "imports": {
+    "#config/*": "./config/*.js",
+    "#modules/*": "./src/modules/*.js"
+  },
   "dependencies": {
     "bullmq": "^5.7.0",
     "cors": "^2.8.5",
