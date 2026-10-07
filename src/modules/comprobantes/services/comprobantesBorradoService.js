@@ -2,7 +2,7 @@
  * @file comprobantesBorradoService.js
  * @description Eliminación limpia en cascada de comprobantes en las 3 tablas.
  */
-const db = require('../../../../config/db');
+const db = require('#config/database');
 
 async function eliminarComprobante(hashLargo) {
   const targetHash = String(hashLargo || '').trim();
