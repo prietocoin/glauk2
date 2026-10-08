@@ -11,14 +11,18 @@ import {
 import { prepararEdicionComprobante } from './comprobantesMapperService.js';
 
 export function crearAccionesModal(state) {
-  const acciones = {
-    abrirModal(item) {
+  return {
+    abrirModalEdicion(item) {
+      if (!item) return;
       state.itemEdicion = prepararEdicionComprobante(item, state.loteActivo);
       state.modalAbierto = true;
     },
 
-    abrirModalEdicion(item) {
-      acciones.abrirModal(item);
+    // Alias directo sin referencias circulares a 'acciones'
+    abrirModal(item) {
+      if (!item) return;
+      state.itemEdicion = prepararEdicionComprobante(item, state.loteActivo);
+      state.modalAbierto = true;
     },
 
     async guardarCambios() {
@@ -42,6 +46,4 @@ export function crearAccionesModal(state) {
       }
     }
   };
-
-  return acciones;
 }
