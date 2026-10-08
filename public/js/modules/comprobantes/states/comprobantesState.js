@@ -8,8 +8,8 @@
 
 import { 
   formatMonto, formatTasa, obtenerME1, obtenerME2, 
-  obtenerTasaSocioCalculada, claseInsignia 
-} from '../utils/saldosFilterUtils.js';
+  obtenerTasaSocioCalculada, claseInsignia, formatDiaHora 
+} from '../utils/comprobantesFormatters.js';
 
 import { 
   calcularSociosPendientesConsolidado, 
@@ -97,7 +97,7 @@ export function comprobantesState() {
     },
 
     // 5. FORMATEADORES
-    formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia
+    formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia, formatDiaHora
   };
 
   Object.assign(state, crearAccionesModal(state));
