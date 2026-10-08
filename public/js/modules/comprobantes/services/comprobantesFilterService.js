@@ -1,7 +1,7 @@
 /**
  * @file comprobantesFilterService.js
  * @path public/js/modules/comprobantes/services/comprobantesFilterService.js
- * @description Servicio atómico de filtrado estricto EXCLUSIVO para casillas de socio.
+ * @description Servicio atómico de filtrado estricto por socio y rango de fechas.
  */
 
 export function limpiarFiltro(val) {
@@ -10,43 +10,47 @@ export function limpiarFiltro(val) {
   return (str === 'TODOS' || str === 'TODOS LOS SOCIOS' || str === 'GENERAL') ? '' : val;
 }
 
-/**
- * Filtra la lista evaluando ÚNICAMENTE los recuadros visuales de Socio 1 y Socio 2.
- * Ignora por completo titulares bancarios, bancos, referencias o metadatos.
- */
-export function filtrarComprobantesPorSocio(listaBase = [], directorio = [], filtroSocio = '') {
+export function filtrarComprobantesPorSocio(listaBase = [], directorio = [], filtroSocio = '', rangoFechas = {}) {
   if (!Array.isArray(listaBase) || listaBase.length === 0) return [];
 
+  let resultado = [...listaBase];
   const socioBuscado = (filtroSocio || '').trim().toUpperCase();
 
-  // Si no hay filtro o es "Todos", deja pasar la lista intacta
-  if (!socioBuscado || socioBuscado === 'TODOS' || socioBuscado === 'TODOS LOS SOCIOS') {
-    return listaBase;
-  }
+  // 1. FILTRO DE SOCIO
+  if (socioBuscado && socioBuscado !== 'TODOS' && socioBuscado !== 'TODOS LOS SOCIOS') {
+    const sociosValidos = new Set([socioBuscado]);
+    if (Array.isArray(directorio) && directorio.length > 0) {
+      directorio.forEach(d => {
+        const padre = String(d.padre || d.herencia || '').trim().toUpperCase();
+        const nombre = String(d.nombre || '').trim().toUpperCase();
+        if (padre === socioBuscado || nombre === socioBuscado) {
+          if (d.nombre) sociosValidos.add(String(d.nombre).trim().toUpperCase());
+        }
+      });
+    }
 
-  // Set de nombres autorizados (Socio buscado + herencias del directorio)
-  const sociosValidos = new Set([socioBuscado]);
-  if (Array.isArray(directorio) && directorio.length > 0) {
-    directorio.forEach(d => {
-      const padre = String(d.padre || d.herencia || '').trim().toUpperCase();
-      const nombre = String(d.nombre || '').trim().toUpperCase();
-      if (padre === socioBuscado || nombre === socioBuscado) {
-        if (d.nombre) sociosValidos.add(String(d.nombre).trim().toUpperCase());
-      }
+    resultado = resultado.filter(item => {
+      if (!item) return false;
+      const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
+      const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
+      return sociosValidos.has(s1) || sociosValidos.has(s2);
     });
   }
 
-  return listaBase.filter(item => {
-    if (!item) return false;
+  // 2. FILTRO ATÓMICO DE RANGO DE FECHAS (TIMESTAMP DE CARACAS/VET)
+  if (rangoFechas.fechaInicio) {
+    const startTs = Math.floor(new Date(rangoFechas.fechaInicio.trim() + 'T00:00:00-04:00').getTime() / 1000);
+    if (!isNaN(startTs)) {
+      resultado = resultado.filter(item => (parseInt(item.timestamp) || 0) >= startTs);
+    }
+  }
 
-    // ⛔ LEEMOS EXCLUSIVAMENTE LAS CASILLAS DE SOCIOS (IGNORANDO TITULAR/BANCO)
-    const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
-    const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
+  if (rangoFechas.fechaFin) {
+    const endTs = Math.floor(new Date(rangoFechas.fechaFin.trim() + 'T23:59:59-04:00').getTime() / 1000);
+    if (!isNaN(endTs)) {
+      resultado = resultado.filter(item => (parseInt(item.timestamp) || 0) <= endTs);
+    }
+  }
 
-    // Compara igualdad estricta contra el Set de socios
-    const coincideSocio1 = sociosValidos.has(s1);
-    const coincideSocio2 = sociosValidos.has(s2);
-
-    return coincideSocio1 || coincideSocio2;
-  });
+  return resultado;
 }
