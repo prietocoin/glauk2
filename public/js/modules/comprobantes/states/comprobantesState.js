@@ -24,12 +24,18 @@ import { obtenerSaldoAnteriorSocio } from '../services/comprobantesSaldosService
 
 export function comprobantesState() {
   const state = {
-    // 1. ESTADO REACTIVO PURE
+    // 1. ESTADO REACTIVO PURE (Nombres alineados con la vista EJS)
     items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
     loteActivo: 'T052',
 
-    filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
-    filtroDesdeHash: '', filtroHastaHash: '', ordenarPor: 'fecha_desc', filtroHashBusqueda: '',
+    filtroRol: '', 
+    filtroSocio: '', 
+    filtroFechaInicio: '', 
+    filtroFechaFin: '',
+    filtroDesdeHash: '', 
+    filtroHastaHash: '', 
+    filtroOrden: 'fecha_desc',  // 👈 Sincronizado con x-model="filtroOrden"
+    filtroHash: '',             // 👈 Sincronizado con x-model="filtroHash"
     saldoAnterior: 0,
 
     // 2. GETTERS
@@ -78,10 +84,14 @@ export function comprobantesState() {
       if (!silencioso) this.cargando = true;
 
       const params = {
-        socio: this.filtroSocio, rol: this.filtroRol,
-        fechaInicio: this.filtroFechaInicio, fechaFin: this.filtroFechaFin,
-        desdeHash: this.filtroDesdeHash, hastaHash: this.filtroHastaHash,
-        hash: this.filtroHashBusqueda, orden: this.ordenarPor
+        socio: this.filtroSocio, 
+        rol: this.filtroRol,
+        fechaInicio: this.filtroFechaInicio, 
+        fechaFin: this.filtroFechaFin,
+        desdeHash: this.filtroDesdeHash, 
+        hastaHash: this.filtroHastaHash,
+        hash: this.filtroHash, 
+        orden: this.filtroOrden
       };
 
       // Invocación a lectura HTTP
@@ -92,7 +102,8 @@ export function comprobantesState() {
       const resultadoFinal = filtrarComprobantesAtómico(mapeados, this.directorio, {
         filtroSocio: this.filtroSocio,
         filtroFechaInicio: this.filtroFechaInicio,
-        filtroFechaFin: this.filtroFechaFin
+        filtroFechaFin: this.filtroFechaFin,
+        filtroHash: this.filtroHash
       });
 
       this.items = resultadoFinal;
