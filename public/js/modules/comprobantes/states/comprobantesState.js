@@ -1,7 +1,7 @@
 /**
  * @file comprobantesState.js
  * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Átomo de estado reactivo Alpine.js sincronizado con los servicios atómicos.
+ * @description Átomo de estado reactivo Alpine.js (orquestador puro).
  */
 
 import { 
@@ -17,59 +17,62 @@ import {
 import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
-import { filtrarComprobantesPorSocio, limpiarFiltro } from '../services/comprobantesFilterService.js';
+import { aplicarFiltrosComprobantes, limpiarFiltro } from '../services/comprobantesFilterService.js';
 
 export function comprobantesState() {
   const state = {
-    // 1. PROPIEDADES REACTIVAS BASE
-    rawItems: [], 
-    comprobantes: [], 
-    directorio: [], 
-    cargando: true, 
-    modalAbierto: false, 
+    // 1. PROPIEDADES REACTIVAS DE CONTROL
+    rawItems: [],
+    directorio: [],
+    cargando: true,
+    modalAbierto: false,
     itemEdicion: null,
     loteActivo: 'T052',
-    filtroRol: '', 
-    filtroSocio: '', 
-    filtroFechaInicio: '', 
+
+    // Variables de Filtro
+    filtroRol: '',
+    filtroSocio: '',
+    filtroFechaInicio: '',
     filtroFechaFin: '',
-    filtroDesdeHash: '', 
-    filtroHastaHash: '', 
-    ordenarPor: 'fecha_desc', 
+    filtroDesdeHash: '',
+    filtroHastaHash: '',
+    ordenarPor: 'fecha_desc',
     filtroHashBusqueda: '',
     saldoAnterior: 0,
 
-    // 2. GETTERS COMPUTADOS (DELEGACIÓN A SERVICIOS)
-    get sujetoAuditado() { 
-      return this.filtroSocio ? this.filtroSocio.toUpperCase() : 'TODOS LOS SOCIOS'; 
-    },
-    
-    get saldoActualTotal() { 
-      return (parseFloat(this.saldoAnterior) || 0) + this.movimientoFiltradoTotal; 
+    // 2. GETTERS COMPUTADOS (DELEGACIÓN DIRECTA A SERVICIOS)
+    get sujetoAuditado() {
+      return this.filtroSocio ? this.filtroSocio.toUpperCase() : 'TODOS LOS SOCIOS';
     },
 
-    // GETTER PRINCIPAL DE COMPROBANTES FILTRADOS
-    get comprobantesProcesadosYOrdenados() {
-      return filtrarComprobantesPorSocio(this.rawItems, this.directorio, this.filtroSocio);
-    },
-
-    // ALIAS REACTIVO PARA MANTENER COMPATIBILIDAD CON "x-for='item in items'" EN LA VISTA
     get items() {
-      return this.comprobantesProcesadosYOrdenados;
+      return aplicarFiltrosComprobantes(this.rawItems, this.directorio, {
+        filtroSocio: this.filtroSocio,
+        filtroDesdeHash: this.filtroDesdeHash,
+        filtroHastaHash: this.filtroHastaHash
+      });
     },
 
-    get movimientoFiltradoTotal() { 
-      return calcularMovimientoFiltradoTotal(this.comprobantesProcesadosYOrdenados, this.filtroSocio); 
+    get comprobantes() {
+      return this.items;
+    },
+
+    get movimientoFiltradoTotal() {
+      return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
+    },
+
+    get saldoActualTotal() {
+      return (parseFloat(this.saldoAnterior) || 0) + this.movimientoFiltradoTotal;
     },
 
     get sociosPendientesConsolidado() {
-      return calcularSociosPendientesConsolidado(this.directorio, this.comprobantesProcesadosYOrdenados, {
-        fechaInicio: this.filtroFechaInicio, 
+      return calcularSociosPendientesConsolidado(this.directorio, this.items, {
+        fechaInicio: this.filtroFechaInicio,
         fechaFin: this.filtroFechaFin
       });
     },
 
-    // 3. COMUNICACIÓN CON API
+    // 3. CICLO DE VIDA Y CARGA HTTP
     init() {
       this.$nextTick(() => {
         this.cargarComprobantes();
@@ -101,13 +104,11 @@ export function comprobantesState() {
       const raw = (await obtenerComprobantes(params)) || [];
       const lista = Array.isArray(raw) ? raw : (raw.objects || raw.comprobantes || []);
 
-      // Mapea y almacena en la lista base sin filtrar
       this.rawItems = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
-      this.comprobantes = this.rawItems;
       this.cargando = false;
     },
 
-    // 4. MÉTODOS DE FORMATO E INTERFAZ
+    // 4. MÉTODOS DE FORMATO ATÓMICOS
     formatMonto,
     formatTasa,
     obtenerME1,
