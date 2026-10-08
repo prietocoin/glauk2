@@ -1,57 +1,91 @@
 /**
- * @file comprobantesFilterService.js
- * @path public/js/modules/comprobantes/services/comprobantesFilterService.js
- * @description Servicio atómico de cortafuegos estricto (Socio + Rango de Fechas).
+ * @file comprobantesState.js
+ * @path public/js/modules/comprobantes/states/comprobantesState.js
+ * @description Átomo de estado reactivo Alpine.js (Contenedor puro de estado).
  */
 
-export function limpiarFiltro(val) {
-  if (!val) return '';
-  const str = String(val).trim().toUpperCase();
-  return (str === 'TODOS' || str === 'TODOS LOS SOCIOS' || str === 'GENERAL') ? '' : val;
-}
+import { 
+  formatMonto, formatTasa, obtenerME1, obtenerME2, 
+  obtenerTasaSocioCalculada, claseInsignia 
+} from '../utils/saldosFilterUtils.js';
 
-export function filtrarComprobantesAtómico(listaBase = [], directorio = [], filtros = {}) {
-  if (!Array.isArray(listaBase) || listaBase.length === 0) return [];
+import { 
+  calcularSociosPendientesConsolidado, 
+  calcularMovimientoFiltradoTotal 
+} from '../services/saldosCalculatorService.js';
 
-  let resultado = [...listaBase];
-  const socioBuscado = limpiarFiltro(filtros.filtroSocio).toUpperCase();
+import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
+import { crearAccionesModal } from '../services/comprobantesModalActions.js';
+import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
+import { filtrarComprobantesAtómico } from '../services/comprobantesFilterService.js';
+import { obtenerSaldoAnteriorSocio } from '../services/comprobantesSaldosService.js';
 
-  // 1. CORTAFUEGOS ESTRICTO DE SOCIO (Socio 1 o Socio 2)
-  if (socioBuscado) {
-    const sociosValidos = new Set([socioBuscado]);
-    if (Array.isArray(directorio) && directorio.length > 0) {
-      directorio.forEach(d => {
-        const padre = String(d.padre || d.herencia || '').trim().toUpperCase();
-        const nombre = String(d.nombre || '').trim().toUpperCase();
-        if (padre === socioBuscado || nombre === socioBuscado) {
-          if (d.nombre) sociosValidos.add(String(d.nombre).trim().toUpperCase());
-        }
+export function comprobantesState() {
+  const state = {
+    // 1. PROPIEDADES REACTIVAS BASE
+    items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
+    loteActivo: 'T052',
+
+    // Filtros
+    filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
+    filtroDesdeHash: '', filtroHastaHash: '', ordenarPor: 'fecha_desc', filtroHashBusqueda: '',
+    saldoAnterior: 0,
+
+    // 2. GETTERS DELEGADOS
+    get sujetoAuditado() {
+      return (this.filtroSocio && this.filtroSocio !== 'TODOS') ? this.filtroSocio.toUpperCase() : 'TODOS LOS SOCIOS';
+    },
+
+    get movimientoFiltradoTotal() {
+      return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
+    },
+
+    get saldoActualTotal() {
+      return (parseFloat(this.saldoAnterior) || 0) + this.movimientoFiltradoTotal;
+    },
+
+    get sociosPendientesConsolidado() {
+      return calcularSociosPendientesConsolidado(this.directorio, this.items, {
+        fechaInicio: this.filtroFechaInicio, fechaFin: this.filtroFechaFin
       });
-    }
+    },
 
-    resultado = resultado.filter(item => {
-      if (!item) return false;
-      const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
-      const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
-      return sociosValidos.has(s1) || sociosValidos.has(s2);
-    });
-  }
+    // 3. COMUNICACIÓN Y ORQUESTACIÓN (1 LÍNEA POR ACCIÓN)
+    init() {
+      this.$nextTick(() => this.cargarComprobantes());
+    },
 
-  // 2. CORTAFUEGOS DE FECHA INICIO (VET / Caracas)
-  if (filtros.filtroFechaInicio) {
-    const startTs = Math.floor(new Date(filtros.filtroFechaInicio.trim() + 'T00:00:00-04:00').getTime() / 1000);
-    if (!isNaN(startTs)) {
-      resultado = resultado.filter(item => (parseInt(item.timestamp) || 0) >= startTs);
-    }
-  }
+    actualizarSocioSeleccionado() {
+      this.saldoAnterior = obtenerSaldoAnteriorSocio(this.directorio, this.filtroSocio);
+      this.cargarComprobantes();
+    },
 
-  // 3. CORTAFUEGOS DE FECHA FIN (VET / Caracas)
-  if (filtros.filtroFechaFin) {
-    const endTs = Math.floor(new Date(filtros.filtroFechaFin.trim() + 'T23:59:59-04:00').getTime() / 1000);
-    if (!isNaN(endTs)) {
-      resultado = resultado.filter(item => (parseInt(item.timestamp) || 0) <= endTs);
-    }
-  }
+    async cargarComprobantes(silencioso = false) {
+      if (!silencioso) this.cargando = true;
 
-  return resultado;
+      const params = {
+        socio: this.filtroSocio, rol: this.filtroRol,
+        fechaInicio: this.filtroFechaInicio, fechaFin: this.filtroFechaFin,
+        desdeHash: this.filtroDesdeHash, hastaHash: this.filtroHastaHash,
+        hash: this.filtroHashBusqueda, orden: this.ordenarPor
+      };
+
+      const raw = await obtenerComprobantes(params);
+      const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
+
+      // Delegación completa del filtrado al servicio atómico
+      const resultadoFinal = filtrarComprobantesAtómico(mapeados, this.directorio, this);
+
+      this.items = resultadoFinal;
+      this.comprobantes = resultadoFinal;
+      this.cargando = false;
+    },
+
+    // 4. MÉTODOS AUXILIARES
+    formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia
+  };
+
+  Object.assign(state, crearAccionesModal(state));
+
+  return state;
 }
