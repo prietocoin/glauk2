@@ -1,7 +1,9 @@
 /**
+ * =================================================================
  * @file comprobantesFilterService.js
  * @path public/js/modules/comprobantes/services/comprobantesFilterService.js
- * @description Cortafuegos atómico estricto (Socio 1 y Socio 2 únicamente + Fechas).
+ * @description Servicio atómico exclusivo para reglas de filtrado (Socio 1, Socio 2 y Fechas).
+ * =================================================================
  */
 
 export function limpiarFiltro(val) {
@@ -16,9 +18,11 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
   let resultado = [...listaBase];
   const socioBuscado = limpiarFiltro(filtros.filtroSocio).toUpperCase();
 
-  // 1. CORTAFUEGOS EXCLUSIVO DE SOCIO (Socio 1 y Socio 2)
+  // 1. FILTRADO ESTRICTO POR SOCIO (Exclusivamente Socio 1 y Socio 2)
   if (socioBuscado) {
     const sociosValidos = new Set([socioBuscado]);
+    
+    // Cruzar con directorio si existen alias/herencias
     if (Array.isArray(directorio) && directorio.length > 0) {
       directorio.forEach(d => {
         const padre = String(d.padre || d.herencia || '').trim().toUpperCase();
@@ -37,18 +41,22 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
     });
   }
 
-  // 2. CORTAFUEGOS DE FECHA INICIO
+  // 2. FILTRADO POR FECHA INICIO
   if (filtros.filtroFechaInicio) {
-    const startTs = Math.floor(new Date(filtros.filtroFechaInicio.trim() + 'T00:00:00-04:00').getTime() / 1000);
-    if (!isNaN(startTs)) {
+    const dStr = String(filtros.filtroFechaInicio).trim();
+    const dObj = new Date(dStr.includes('T') ? dStr : dStr + 'T00:00:00');
+    if (!isNaN(dObj.getTime())) {
+      const startTs = Math.floor(dObj.getTime() / 1000);
       resultado = resultado.filter(item => (parseInt(item.timestamp) || 0) >= startTs);
     }
   }
 
-  // 3. CORTAFUEGOS DE FECHA FIN
+  // 3. FILTRADO POR FECHA FIN
   if (filtros.filtroFechaFin) {
-    const endTs = Math.floor(new Date(filtros.filtroFechaFin.trim() + 'T23:59:59-04:00').getTime() / 1000);
-    if (!isNaN(endTs)) {
+    const dStr = String(filtros.filtroFechaFin).trim();
+    const dObj = new Date(dStr.includes('T') ? dStr : dStr + 'T23:59:59');
+    if (!isNaN(dObj.getTime())) {
+      const endTs = Math.floor(dObj.getTime() / 1000);
       resultado = resultado.filter(item => (parseInt(item.timestamp) || 0) <= endTs);
     }
   }
