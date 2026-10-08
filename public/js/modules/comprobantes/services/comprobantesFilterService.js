@@ -2,7 +2,7 @@
  * =================================================================
  * @file comprobantesFilterService.js
  * @path public/js/modules/comprobantes/services/comprobantesFilterService.js
- * @description Servicio atómico de cortafuegos y ordenamiento por socio y fecha_hora_comprobante.
+ * @description Servicio atómico de cortafuegos y ordenamiento (Fecha/Monto).
  * =================================================================
  */
 
@@ -68,19 +68,27 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
       });
     }
   }
-// 4. ORDENAMIENTO GARANTIZADO POR FECHA HORA COMPROBANTE
-const criterioOrden = String(filtros.filtroOrden || 'fecha_desc').toLowerCase();
 
-resultado.sort((a, b) => {
-  const msA = new Date(a.fecha_hora_comprobante || 0).getTime();
-  const msB = new Date(b.fecha_hora_comprobante || 0).getTime();
+  // 4. ORDENAMIENTO COMPLETO SEGÚN LAS OPCIONES DE BARRAFILTROS (7. ORDENAR)
+  const criterioOrden = String(filtros.filtroOrden || 'fecha_desc').toLowerCase();
 
-  if (criterioOrden === 'fecha_asc' || criterioOrden.includes('antiguo')) {
-    return msA - msB; // Menor ms primero (Antiguos a la izquierda)
-  } else {
-    return msB - msA; // Mayor ms primero (Recientes a la izquierda)
-  }
-});
+  return [...resultado].sort((a, b) => {
+    // A) Orden por Monto
+    if (criterioOrden === 'monto_desc') {
+      return (parseFloat(b.monto) || 0) - (parseFloat(a.monto) || 0);
+    }
+    if (criterioOrden === 'monto_asc') {
+      return (parseFloat(a.monto) || 0) - (parseFloat(b.monto) || 0);
+    }
 
-  return resultado;
+    // B) Orden por Fecha
+    const msA = new Date(a.fecha_hora_comprobante || 0).getTime();
+    const msB = new Date(b.fecha_hora_comprobante || 0).getTime();
+
+    if (criterioOrden === 'fecha_asc') {
+      return msA - msB; // Antiguos primero (Ascendente)
+    } else {
+      return msB - msA; // Recientes primero (Descendente / Default)
+    }
+  });
 }
