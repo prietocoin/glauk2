@@ -10,6 +10,9 @@ import { comprobantesState } from './modules/comprobantes/states/comprobantesSta
 
 function registrarApp() {
   Alpine.data('app', () => ({
+    // Vista por defecto
+    vistaActiva: 'comprobantes',
+
     // Composición modular del estado
     ...createRouterState(),
     ...createTasasState(),
@@ -19,42 +22,13 @@ function registrarApp() {
     // Inicialización global del ciclo de vida
     async init() {
       await Promise.all([
-        this.cargarTasasMercado(),
-        this.cargarDirectorio(),
-        this.cargarComprobantes()
+        this.cargarTasasMercado ? this.cargarTasasMercado() : Promise.resolve(),
+        this.cargarDirectorio ? this.cargarDirectorio() : Promise.resolve(),
+        this.cargarComprobantes ? this.cargarComprobantes() : Promise.resolve()
       ]);
     }
   }));
 }
-
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.btn-abrir-modal');
-  if (!btn) return;
-
-  e.preventDefault();
-  e.stopPropagation();
-
-  try {
-    const rawData = btn.getAttribute('data-item');
-    if (!rawData) return;
-
-    const item = JSON.parse(rawData);
-    
-    // Obtenemos la instancia raíz de Alpine en el body
-    const appEl = document.querySelector('[x-data]');
-    if (appEl && window.Alpine) {
-      const state = Alpine.$data(appEl);
-      if (typeof state.abrirModalEdicion === 'function') {
-        state.abrirModalEdicion(item);
-      } else {
-        state.itemEdicion = item;
-        state.modalAbierto = true;
-      }
-    }
-  } catch (err) {
-    console.error('Error al capturar clic de apertura de modal:', err);
-  }
-});
 
 if (window.Alpine) {
   registrarApp();
