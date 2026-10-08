@@ -1,7 +1,7 @@
 /**
  * @file comprobantesState.js
  * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Átomo de estado reactivo Alpine.js para la auditoría de comprobantes.
+ * @description Átomo de estado reactivo Alpine.js (fuente de verdad pura).
  */
 
 import { 
@@ -17,10 +17,11 @@ import {
 import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
+import { filtrarComprobantesPorSocio, limpiarFiltro } from '../services/comprobantesFilterService.js';
 
 export function comprobantesState() {
   const state = {
-    // 1. PROPIEDADES REACTIVAS (ITEMS ES LA PROPIEDAD MAESTRA)
+    // 1. PROPIEDADES REACTIVAS
     rawItems: [],
     items: [],
     comprobantes: [],
@@ -40,7 +41,7 @@ export function comprobantesState() {
     filtroHashBusqueda: '',
     saldoAnterior: 0,
 
-    // 2. GETTERS COMPUTADOS
+    // 2. GETTERS COMPUTADOS (DELEGACIÓN DIRECTA A SERVICIOS)
     get sujetoAuditado() {
       return this.filtroSocio ? this.filtroSocio.toUpperCase() : 'TODOS LOS SOCIOS';
     },
@@ -60,7 +61,7 @@ export function comprobantesState() {
       });
     },
 
-    // 3. INICIALIZACIÓN Y FILTRADO ATÓMICO EN MEMORIA
+    // 3. CICLO DE VIDA Y DELEGACIÓN
     init() {
       this.$nextTick(() => {
         this.cargarComprobantes();
@@ -79,35 +80,9 @@ export function comprobantesState() {
       this.aplicarFiltroLocal();
     },
 
-    // FILTRADO ESTRICTO EXCLUSIVO SOBRE SOCIO 1 Y SOCIO 2
+    // DELEGACIÓN PURA AL SERVICIO ATÓMICO
     aplicarFiltroLocal() {
-      const socioBuscado = (this.filtroSocio || '').trim().toUpperCase();
-
-      if (!socioBuscado || socioBuscado === 'TODOS' || socioBuscado === 'TODOS LOS SOCIOS') {
-        this.items = [...this.rawItems];
-        this.comprobantes = this.items;
-        return;
-      }
-
-      // Set de validación con directorio para alias / herencias
-      const sociosValidos = new Set([socioBuscado]);
-      if (Array.isArray(this.directorio) && this.directorio.length > 0) {
-        this.directorio.forEach(d => {
-          const padre = String(d.padre || d.herencia || '').toUpperCase();
-          const nombre = String(d.nombre || '').toUpperCase();
-          if (padre === socioBuscado || nombre === socioBuscado) {
-            if (d.nombre) sociosValidos.add(String(d.nombre).toUpperCase());
-          }
-        });
-      }
-
-      // Filtra estrictamente Socio 1 o Socio 2 (Descarta Titular Bancario)
-      const filtrados = this.rawItems.filter(item => {
-        const s1 = String(item?.nombre_socio_1 || item?.socio_1 || '').trim().toUpperCase();
-        const s2 = String(item?.nombre_socio_2 || item?.socio_2 || '').trim().toUpperCase();
-        return sociosValidos.has(s1) || sociosValidos.has(s2);
-      });
-
+      const filtrados = filtrarComprobantesPorSocio(this.rawItems, this.directorio, this.filtroSocio);
       this.items = filtrados;
       this.comprobantes = filtrados;
     },
@@ -115,10 +90,8 @@ export function comprobantesState() {
     async cargarComprobantes(silencioso = false) {
       if (!silencioso) this.cargando = true;
 
-      const limpiar = (val) => (!val || String(val).toUpperCase() === 'TODOS' || String(val).toUpperCase() === 'TODOS LOS SOCIOS') ? '' : val;
-
       const params = {
-        rol: limpiar(this.filtroRol),
+        rol: limpiarFiltro(this.filtroRol),
         fechaInicio: this.filtroFechaInicio,
         fechaFin: this.filtroFechaFin,
         hash: this.filtroHashBusqueda,
@@ -128,15 +101,15 @@ export function comprobantesState() {
       const raw = (await obtenerComprobantes(params)) || [];
       const lista = Array.isArray(raw) ? raw : (raw.objects || raw.comprobantes || []);
 
-      // Guarda la lista maestra limpia
+      // Prepara datos con el mapper y los guarda en rawItems
       this.rawItems = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
       
-      // Procesa el filtro y asigna directamente a "items"
+      // Aplica el servicio de filtrado y asigna a la reactividad de la vista (items)
       this.aplicarFiltroLocal();
       this.cargando = false;
     },
 
-    // 4. MÉTODOS Y FORMATEADORES IMPORTADOS DIRECTAMENTE
+    // 4. FORMATEADORES ATÓMICOS
     formatMonto,
     formatTasa,
     obtenerME1,
