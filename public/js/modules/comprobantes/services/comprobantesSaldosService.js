@@ -31,13 +31,10 @@ export function obtenerSaldoAnteriorSocio(directorio = [], socioNombre = '') {
  */
 export function obtenerSujetoAuditado(filtroSocio = '') {
   if (!filtroSocio) return 'TODOS LOS SOCIOS';
-
-  // Si filtroSocio viene como objeto o string, extraemos el texto
-  const str = (typeof filtroSocio === 'object' ? (filtroSocio.nombre || '') : String(filtroSocio)).trim().toUpperCase();
-
+  const str = String(filtroSocio).trim().toUpperCase();
   if (!str || str === 'TODOS' || str === 'TODOS LOS SOCIOS' || str === 'GENERAL') {
     return 'TODOS LOS SOCIOS';
   }
-
   return str;
 }
+
