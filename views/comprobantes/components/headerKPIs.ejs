@@ -28,11 +28,11 @@
 <!-- GRILLA DE KPIS SUPERIORES (5 Tarjetas de Resumen Contable) -->
 <div class="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-3">
   
-  <!-- 1. Sujeto Auditado -->
-  <div class="col-span-2 sm:col-span-1 bg-[#060c24] p-2.5 md:p-3.5 rounded-xl md:rounded-2xl border border-blue-900/50 shadow-xl">
-    <p class="text-[8px] md:text-[9px] font-extrabold text-blue-400/80 uppercase">SUJETO / ENTIDAD AUDITADA</p>
-    <h3 class="text-xs md:text-base font-black text-white mt-0.5 truncate" x-text="sujetoAuditado"></h3>
-  </div>
+ <!-- 1. Sujeto Auditado (Llamada explícita al servicio pasando la variable) -->
+<div class="col-span-2 sm:col-span-1 bg-[#060c24] p-2.5 md:p-3.5 rounded-xl md:rounded-2xl border border-blue-900/50 shadow-xl">
+  <p class="text-[8px] md:text-[9px] font-extrabold text-blue-400/80 uppercase">SUJETO / ENTIDAD AUDITADA</p>
+  <h3 class="text-xs md:text-base font-black text-white mt-0.5 truncate" x-text="obtenerSujetoAuditado(filtroSocio)"></h3>
+</div>
 
   <!-- 2. Ítems Operados -->
   <div class="bg-[#060c24] p-2.5 md:p-3.5 rounded-xl md:rounded-2xl border border-blue-900/50 shadow-xl">
