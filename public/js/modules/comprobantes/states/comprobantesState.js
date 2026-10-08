@@ -104,6 +104,7 @@ export function comprobantesState() {
         filtroFechaInicio: this.filtroFechaInicio,
         filtroFechaFin: this.filtroFechaFin,
         filtroHash: this.filtroHash
+        filtroOrden: this.filtroOrden // 👈 AQUÍ ESTABA LA OMISIÓN
       });
 
       this.items = resultadoFinal;
