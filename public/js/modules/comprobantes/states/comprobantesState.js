@@ -1,7 +1,7 @@
 /**
  * @file comprobantesState.js
  * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Átomo de estado reactivo Alpine.js.
+ * @description Átomo de estado reactivo Alpine.js para la auditoría de comprobantes.
  */
 
 import { 
@@ -17,12 +17,12 @@ import {
 import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
-import { filtrarComprobantesPorSocio, limpiarFiltro } from '../services/comprobantesFilterService.js';
 
 export function comprobantesState() {
   const state = {
-    // 1. PROPIEDADES REACTIVAS DEL MONOLITO
+    // 1. PROPIEDADES REACTIVAS (ITEMS ES LA PROPIEDAD MAESTRA)
     rawItems: [],
+    items: [],
     comprobantes: [],
     directorio: [],
     cargando: true,
@@ -46,7 +46,7 @@ export function comprobantesState() {
     },
 
     get movimientoFiltradoTotal() {
-      return calcularMovimientoFiltradoTotal(this.comprobantes, this.filtroSocio);
+      return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
     },
 
     get saldoActualTotal() {
@@ -54,13 +54,13 @@ export function comprobantesState() {
     },
 
     get sociosPendientesConsolidado() {
-      return calcularSociosPendientesConsolidado(this.directorio, this.comprobantes, {
+      return calcularSociosPendientesConsolidado(this.directorio, this.items, {
         fechaInicio: this.filtroFechaInicio,
         fechaFin: this.filtroFechaFin
       });
     },
 
-    // 3. ACCIONES DE FILTRADO Y HTTP
+    // 3. INICIALIZACIÓN Y FILTRADO ATÓMICO EN MEMORIA
     init() {
       this.$nextTick(() => {
         this.cargarComprobantes();
@@ -76,19 +76,49 @@ export function comprobantesState() {
       } else {
         this.saldoAnterior = 0;
       }
-      // Re-filtra en memoria reactivamente sin rehacer la llamada HTTP completa
       this.aplicarFiltroLocal();
     },
 
+    // FILTRADO ESTRICTO EXCLUSIVO SOBRE SOCIO 1 Y SOCIO 2
     aplicarFiltroLocal() {
-      this.comprobantes = filtrarComprobantesPorSocio(this.rawItems, this.directorio, this.filtroSocio);
+      const socioBuscado = (this.filtroSocio || '').trim().toUpperCase();
+
+      if (!socioBuscado || socioBuscado === 'TODOS' || socioBuscado === 'TODOS LOS SOCIOS') {
+        this.items = [...this.rawItems];
+        this.comprobantes = this.items;
+        return;
+      }
+
+      // Set de validación con directorio para alias / herencias
+      const sociosValidos = new Set([socioBuscado]);
+      if (Array.isArray(this.directorio) && this.directorio.length > 0) {
+        this.directorio.forEach(d => {
+          const padre = String(d.padre || d.herencia || '').toUpperCase();
+          const nombre = String(d.nombre || '').toUpperCase();
+          if (padre === socioBuscado || nombre === socioBuscado) {
+            if (d.nombre) sociosValidos.add(String(d.nombre).toUpperCase());
+          }
+        });
+      }
+
+      // Filtra estrictamente Socio 1 o Socio 2 (Descarta Titular Bancario)
+      const filtrados = this.rawItems.filter(item => {
+        const s1 = String(item?.nombre_socio_1 || item?.socio_1 || '').trim().toUpperCase();
+        const s2 = String(item?.nombre_socio_2 || item?.socio_2 || '').trim().toUpperCase();
+        return sociosValidos.has(s1) || sociosValidos.has(s2);
+      });
+
+      this.items = filtrados;
+      this.comprobantes = filtrados;
     },
 
     async cargarComprobantes(silencioso = false) {
       if (!silencioso) this.cargando = true;
 
+      const limpiar = (val) => (!val || String(val).toUpperCase() === 'TODOS' || String(val).toUpperCase() === 'TODOS LOS SOCIOS') ? '' : val;
+
       const params = {
-        rol: limpiarFiltro(this.filtroRol),
+        rol: limpiar(this.filtroRol),
         fechaInicio: this.filtroFechaInicio,
         fechaFin: this.filtroFechaFin,
         hash: this.filtroHashBusqueda,
@@ -98,15 +128,15 @@ export function comprobantesState() {
       const raw = (await obtenerComprobantes(params)) || [];
       const lista = Array.isArray(raw) ? raw : (raw.objects || raw.comprobantes || []);
 
-      // Almacena la lista cruda mapeada
+      // Guarda la lista maestra limpia
       this.rawItems = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
       
-      // Aplica el filtrado atómico directamente a 'comprobantes'
+      // Procesa el filtro y asigna directamente a "items"
       this.aplicarFiltroLocal();
       this.cargando = false;
     },
 
-    // 4. FORMATEADORES ATÓMICOS
+    // 4. MÉTODOS Y FORMATEADORES IMPORTADOS DIRECTAMENTE
     formatMonto,
     formatTasa,
     obtenerME1,
