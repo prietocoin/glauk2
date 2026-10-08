@@ -1,7 +1,7 @@
 /**
  * @file comprobantesState.js
  * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Átomo de estado reactivo Alpine.js sincronizado con los servicios atómicos.
+ * @description Átomo de estado reactivo Alpine.js.
  */
 
 import { 
@@ -21,55 +21,46 @@ import { filtrarComprobantesPorSocio, limpiarFiltro } from '../services/comproba
 
 export function comprobantesState() {
   const state = {
-    // 1. PROPIEDADES REACTIVAS BASE
-    rawItems: [], 
-    comprobantes: [], 
-    directorio: [], 
-    cargando: true, 
-    modalAbierto: false, 
+    // 1. PROPIEDADES REACTIVAS DEL MONOLITO
+    rawItems: [],
+    comprobantes: [],
+    directorio: [],
+    cargando: true,
+    modalAbierto: false,
     itemEdicion: null,
     loteActivo: 'T052',
-    filtroRol: '', 
-    filtroSocio: '', 
-    filtroFechaInicio: '', 
+
+    filtroRol: '',
+    filtroSocio: '',
+    filtroFechaInicio: '',
     filtroFechaFin: '',
-    filtroDesdeHash: '', 
-    filtroHastaHash: '', 
-    ordenarPor: 'fecha_desc', 
+    filtroDesdeHash: '',
+    filtroHastaHash: '',
+    ordenarPor: 'fecha_desc',
     filtroHashBusqueda: '',
     saldoAnterior: 0,
 
-    // 2. GETTERS COMPUTADOS (DELEGACIÓN A SERVICIOS)
-    get sujetoAuditado() { 
-      return this.filtroSocio ? this.filtroSocio.toUpperCase() : 'TODOS LOS SOCIOS'; 
-    },
-    
-    get saldoActualTotal() { 
-      return (parseFloat(this.saldoAnterior) || 0) + this.movimientoFiltradoTotal; 
+    // 2. GETTERS COMPUTADOS
+    get sujetoAuditado() {
+      return this.filtroSocio ? this.filtroSocio.toUpperCase() : 'TODOS LOS SOCIOS';
     },
 
-    // GETTER PRINCIPAL DE COMPROBANTES FILTRADOS
-    get comprobantesProcesadosYOrdenados() {
-      return filtrarComprobantesPorSocio(this.rawItems, this.directorio, this.filtroSocio);
+    get movimientoFiltradoTotal() {
+      return calcularMovimientoFiltradoTotal(this.comprobantes, this.filtroSocio);
     },
 
-    // ALIAS REACTIVO PARA MANTENER COMPATIBILIDAD CON "x-for='item in items'" EN LA VISTA
-    get items() {
-      return this.comprobantesProcesadosYOrdenados;
-    },
-
-    get movimientoFiltradoTotal() { 
-      return calcularMovimientoFiltradoTotal(this.comprobantesProcesadosYOrdenados, this.filtroSocio); 
+    get saldoActualTotal() {
+      return (parseFloat(this.saldoAnterior) || 0) + this.movimientoFiltradoTotal;
     },
 
     get sociosPendientesConsolidado() {
-      return calcularSociosPendientesConsolidado(this.directorio, this.comprobantesProcesadosYOrdenados, {
-        fechaInicio: this.filtroFechaInicio, 
+      return calcularSociosPendientesConsolidado(this.directorio, this.comprobantes, {
+        fechaInicio: this.filtroFechaInicio,
         fechaFin: this.filtroFechaFin
       });
     },
 
-    // 3. COMUNICACIÓN CON API
+    // 3. ACCIONES DE FILTRADO Y HTTP
     init() {
       this.$nextTick(() => {
         this.cargarComprobantes();
@@ -85,6 +76,12 @@ export function comprobantesState() {
       } else {
         this.saldoAnterior = 0;
       }
+      // Re-filtra en memoria reactivamente sin rehacer la llamada HTTP completa
+      this.aplicarFiltroLocal();
+    },
+
+    aplicarFiltroLocal() {
+      this.comprobantes = filtrarComprobantesPorSocio(this.rawItems, this.directorio, this.filtroSocio);
     },
 
     async cargarComprobantes(silencioso = false) {
@@ -101,13 +98,15 @@ export function comprobantesState() {
       const raw = (await obtenerComprobantes(params)) || [];
       const lista = Array.isArray(raw) ? raw : (raw.objects || raw.comprobantes || []);
 
-      // Mapea y almacena en la lista base sin filtrar
+      // Almacena la lista cruda mapeada
       this.rawItems = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
-      this.comprobantes = this.rawItems;
+      
+      // Aplica el filtrado atómico directamente a 'comprobantes'
+      this.aplicarFiltroLocal();
       this.cargando = false;
     },
 
-    // 4. MÉTODOS DE FORMATO E INTERFAZ
+    // 4. FORMATEADORES ATÓMICOS
     formatMonto,
     formatTasa,
     obtenerME1,
