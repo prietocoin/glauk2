@@ -1,5 +1,11 @@
-<!-- views/comprobantes/components/modalEditarComprobante.ejs -->
-<div @abrir-modal-edicion.window="abrirModalEdicion($event.detail)">
+<!-- ================================================================= -->
+<!-- COMPONENTE: modalEditarComprobante.ejs                            -->
+<!-- UBICACIÓN: views/comprobantes/components/                         -->
+<!-- RESPONSABILIDAD: Envoltura con listener global y Teleport a Body  -->
+<!-- ================================================================= -->
+
+<div @abrir-modal-edicion.window="abrirModalEdicion ? abrirModalEdicion($event.detail) : ($data.itemEdicion = $event.detail, $data.modalAbierto = true)">
+  
   <template x-teleport="body">
     <div x-show="modalAbierto" 
          x-transition:enter="transition ease-out duration-200"
