@@ -1,7 +1,7 @@
 /**
  * @file comprobantesFilterService.js
  * @path public/js/modules/comprobantes/services/comprobantesFilterService.js
- * @description Servicio atómico de cortafuegos estricto (Socio + Rango de Fechas).
+ * @description Cortafuegos atómico estricto (Socio 1 y Socio 2 únicamente + Fechas).
  */
 
 export function limpiarFiltro(val) {
@@ -16,7 +16,7 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
   let resultado = [...listaBase];
   const socioBuscado = limpiarFiltro(filtros.filtroSocio).toUpperCase();
 
-  // 1. CORTAFUEGOS ESTRICTO DE SOCIO (Socio 1 o Socio 2)
+  // 1. CORTAFUEGOS EXCLUSIVO DE SOCIO (Socio 1 y Socio 2)
   if (socioBuscado) {
     const sociosValidos = new Set([socioBuscado]);
     if (Array.isArray(directorio) && directorio.length > 0) {
@@ -37,7 +37,7 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
     });
   }
 
-  // 2. CORTAFUEGOS DE FECHA INICIO (VET / Caracas)
+  // 2. CORTAFUEGOS DE FECHA INICIO
   if (filtros.filtroFechaInicio) {
     const startTs = Math.floor(new Date(filtros.filtroFechaInicio.trim() + 'T00:00:00-04:00').getTime() / 1000);
     if (!isNaN(startTs)) {
@@ -45,7 +45,7 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
     }
   }
 
-  // 3. CORTAFUEGOS DE FECHA FIN (VET / Caracas)
+  // 3. CORTAFUEGOS DE FECHA FIN
   if (filtros.filtroFechaFin) {
     const endTs = Math.floor(new Date(filtros.filtroFechaFin.trim() + 'T23:59:59-04:00').getTime() / 1000);
     if (!isNaN(endTs)) {
