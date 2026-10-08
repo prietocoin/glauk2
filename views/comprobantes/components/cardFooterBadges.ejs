@@ -8,10 +8,10 @@
   
   <!-- VISOR DE IMAGEN R2 (60% de ancho) -->
   <div class="w-[60%] shrink-0 bg-[#010309] border border-blue-900/60 rounded-xl overflow-hidden p-1 flex items-center justify-center relative">
-    <button type="button" 
-            @click.stop="abrirModalEdicion(item)" 
-            class="w-full h-full flex items-center justify-center cursor-pointer relative z-10" 
-            title="Ampliar / Auditar recibo">
+   <button type="button" 
+        @click.stop="$dispatch('abrir-modal-edicion', item)" 
+        class="w-full h-full flex items-center justify-center cursor-pointer" 
+        title="Ampliar / Auditar recibo">
       <template x-if="item.url_r2 || item.url_imagen">
         <img :src="item.url_r2 || item.url_imagen" class="w-full h-full object-contain rounded-lg opacity-90 hover:opacity-100 transition-opacity pointer-events-none" alt="Recibo">
       </template>
@@ -93,10 +93,10 @@
       </button>
 
       <button type="button" 
-              @click.stop="abrirModalEdicion(item)" 
-              class="p-1 text-slate-400 hover:text-cyan-400 transition-colors text-sm active:scale-95 cursor-pointer relative z-40" 
-              title="Auditar / Editar">
-        ✏️
+        @click.stop="$dispatch('abrir-modal-edicion', item)" 
+        class="p-1 text-slate-400 hover:text-cyan-400 transition-colors text-sm cursor-pointer" 
+        title="Auditar / Editar">
+  ✏️
       </button>
     </div>
 
