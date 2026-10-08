@@ -61,11 +61,21 @@ async function cargarContextoSnapshot(grupoRaw1, usuarioRaw1, grupoRaw2, usuario
     if (res2.rows.length > 0) socio2Data = res2.rows[0];
   }
 
-  // 4. EXTRAER NATURALEZA ATÓMICA (Socio 1 + Moneda)
-  // Se lee la regla de la moneda dentro del JSON de monedas del perfil
+// 4. EXTRAER NATURALEZA ATÓMICA
+const monedaCompUpper = moneda?.toUpperCase();
+const monedaBaseSocioUpper = socio1Data.moneda_base?.toUpperCase();
+
+let naturaleza = 'D'; // Fallback por defecto
+
+// 🔴 REGLA IMPERATIVA: Si la moneda del comprobante es igual a la moneda base del socio -> ABONO ('A')
+if (monedaCompUpper && monedaBaseSocioUpper && monedaCompUpper === monedaBaseSocioUpper) {
+  naturaleza = 'A';
+} else {
+  // Si son monedas distintas, busca la regla específica en el perfil (ej: Socio en USDT recibe ARS)
   const reglasMoneda = socio1Data.monedas || {};
-  const reglaEspecifica = reglasMoneda[moneda?.toUpperCase()] || {};
-  const naturaleza = reglaEspecifica.naturaleza || 'D'; // Fallback a Depósito 'D'
+  const reglaEspecifica = reglasMoneda[monedaCompUpper] || {};
+  naturaleza = reglaEspecifica.naturaleza || 'D';
+}
 
   // 5. SOCIO SYSTEM / FUNDDA
   let funddaData = null;
