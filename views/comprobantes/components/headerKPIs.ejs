@@ -1,6 +1,6 @@
 <!-- ================================================================= -->
-<!-- COMPONENTE: headerKPIs.ejs                                       -->
-<!-- UBICACIÓN: views/comprobantes/components/                          -->
+<!-- COMPONENTE: headerKPIs.ejs                                        -->
+<!-- UBICACIÓN: views/comprobantes/components/                         -->
 <!-- RESPONSABILIDAD: Título principal, botones globales y KPIs top   -->
 <!-- ================================================================= -->
 
@@ -21,7 +21,7 @@
     </button>
 
     <!-- Contador de ítems en pantalla -->
-    <span class="px-2.5 py-1.5 bg-purple-950/80 border border-purple-500/40 text-purple-300 rounded-xl text-[11px] md:text-xs font-bold font-mono" x-text="comprobantes.length + ' ítems'"></span>
+    <span class="px-2.5 py-1.5 bg-purple-950/80 border border-purple-500/40 text-purple-300 rounded-xl text-[11px] md:text-xs font-bold font-mono" x-text="(items || []).length + ' ítems'"></span>
   </div>
 </div>
 
@@ -37,7 +37,7 @@
   <!-- 2. Ítems Operados -->
   <div class="bg-[#060c24] p-2.5 md:p-3.5 rounded-xl md:rounded-2xl border border-blue-900/50 shadow-xl">
     <p class="text-[8px] md:text-[9px] font-extrabold text-blue-400/80 uppercase">OPERADOS</p>
-    <h3 class="text-xs md:text-base font-black text-pink-400 mt-0.5" x-text="comprobantes.length + ' ítems'"></h3>
+    <h3 class="text-xs md:text-base font-black text-pink-400 mt-0.5" x-text="(items || []).length + ' ítems'"></h3>
   </div>
 
   <!-- 3. Saldo Anterior editable -->
@@ -46,19 +46,19 @@
       <p class="text-[8px] md:text-[9px] font-extrabold text-amber-400 uppercase truncate">SALDO ANTERIOR</p>
       <input type="number" x-model="saldoAnterior" class="w-full bg-[#030611] border border-amber-500/40 rounded-lg px-1.5 py-0.5 text-xs md:text-sm font-bold text-amber-300 mt-0.5 outline-none">
     </div>
-    <span class="text-[10px] font-bold text-amber-500 mt-3 shrink-0" x-text="(directorio.find(d => (d.nombre || '').trim().toUpperCase() === (filtroSocio || sujetoAuditado || '').trim().toUpperCase())?.moneda_base || comprobantes[0]?.moneda_socio_1 || 'USDT').toUpperCase()"></span>
+    <span class="text-[10px] font-bold text-amber-500 mt-3 shrink-0" x-text="(items[0]?.moneda_socio_1 || items[0]?.moneda || 'USDT').toUpperCase()"></span>
   </div>
 
   <!-- 4. Total Movimiento del Período -->
   <div class="bg-[#060c24] p-2.5 md:p-3.5 rounded-xl md:rounded-2xl border border-blue-900/50 shadow-xl col-span-1">
     <p class="text-[8px] md:text-[9px] font-extrabold text-emerald-400 uppercase">MOVIMIENTO</p>
-    <h3 class="text-xs md:text-base font-black text-emerald-400 mt-0.5 truncate" x-text="formatMonto(movimientoFiltradoTotal) + ' ' + (directorio.find(d => (d.nombre || '').trim().toUpperCase() === (filtroSocio || sujetoAuditado || '').trim().toUpperCase())?.moneda_base || comprobantes[0]?.moneda_socio_1 || 'USDT').toUpperCase()"></h3>
+    <h3 class="text-xs md:text-base font-black text-emerald-400 mt-0.5 truncate" x-text="formatMonto(movimientoFiltradoTotal) + ' ' + (items[0]?.moneda_socio_1 || items[0]?.moneda || 'USDT').toUpperCase()"></h3>
   </div>
 
   <!-- 5. Saldo Actual Calculado -->
   <div class="bg-[#010a14] p-2.5 md:p-3.5 rounded-xl md:rounded-2xl border border-emerald-500/40 shadow-xl col-span-2 sm:col-span-1">
     <p class="text-[8px] md:text-[9px] font-extrabold text-emerald-400 uppercase">SALDO ACTUAL TOTAL</p>
-    <h3 class="text-xs md:text-base font-black text-emerald-300 mt-0.5 truncate" x-text="formatMonto(saldoActualTotal) + ' ' + (directorio.find(d => (d.nombre || '').trim().toUpperCase() === (filtroSocio || sujetoAuditado || '').trim().toUpperCase())?.moneda_base || comprobantes[0]?.moneda_socio_1 || 'USDT').toUpperCase()"></h3>
+    <h3 class="text-xs md:text-base font-black text-emerald-300 mt-0.5 truncate" x-text="formatMonto(saldoActualTotal) + ' ' + (items[0]?.moneda_socio_1 || items[0]?.moneda || 'USDT').toUpperCase()"></h3>
   </div>
 
 </div>
