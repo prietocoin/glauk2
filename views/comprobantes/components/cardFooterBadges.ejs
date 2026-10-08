@@ -21,17 +21,23 @@
   <!-- METADATOS, BADGES Y BOTONERA (40% restante) -->
   <div class="flex-1 min-w-0 flex flex-col justify-between gap-1 py-0.5">
     
-  <!-- 1. 📅 INSIGNIA DE FECHA / HORA (UBICADA JUSTO ARRIBA DEL HASH) -->
-<div class="w-full text-center py-0.5 rounded bg-cyan-950/90 text-cyan-300 font-mono text-[8px] sm:text-[9px] font-bold border border-cyan-500/50 shadow truncate px-0.5"
-     title="Fecha del comprobante">
-  📅 <span x-text="item.fecha_hora_input ? item.fecha_hora_input.replace('T', ' ') : (item.fecha_hora_comprobante ? item.fecha_hora_comprobante.substring(0,10) : 'S/F')"></span>
-</div>
+    <!-- 1. 📅 INSIGNIA DE FECHA SOLO (YYYY-MM-DD) -->
+    <div class="w-full text-center py-0.5 rounded bg-cyan-950/90 text-cyan-300 font-mono text-[8px] sm:text-[9px] font-bold border border-cyan-500/50 shadow truncate px-0.5"
+         title="Fecha del comprobante">
+      📅 <span x-text="item.fecha_hora_input ? item.fecha_hora_input.substring(0,10) : (item.fecha_hora_comprobante ? item.fecha_hora_comprobante.substring(0,10) : 'S/F')"></span>
+    </div>
 
-    <!-- 2. Hash Corto -->
+    <!-- 2. 🕒 INSIGNIA DÍA Y HORA (EJ: Jueves 09:37 AM) -->
+    <div class="w-full text-center py-0.5 rounded bg-indigo-950/90 text-indigo-300 font-mono text-[8px] sm:text-[9px] font-bold border border-indigo-500/50 shadow truncate px-0.5"
+         title="Día y Hora exacta">
+      🕒 <span x-text="typeof formatDiaHora === 'function' ? formatDiaHora(item.fecha_hora_comprobante || item.fecha_hora_input) : 'S/F'"></span>
+    </div>
+
+    <!-- 3. Hash Corto -->
     <span class="w-full text-center py-0.5 rounded bg-slate-800/90 text-slate-300 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700 truncate px-0.5 shadow" 
           title="Hash de verificación" x-text="item.hash_corto || (item.hash_largo ? item.hash_largo.substring(0,8) : 'HASH')"></span>
     
-    <!-- 3. Tipo de Operación & Badge x2 -->
+    <!-- 4. Tipo de Operación & Badge x2 -->
     <div class="flex gap-1 w-full">
       <span class="flex-1 text-center py-0.5 rounded text-[8px] sm:text-[9px] font-bold border whitespace-nowrap truncate px-0.5" 
             :class="claseInsignia((item.tipo_op_socio || item.tipo_op || item.tipo_manual || 'D').split('-')[0])" 
@@ -41,7 +47,7 @@
             class="px-1 py-0.5 rounded bg-amber-950 text-amber-300 text-[8px] sm:text-[9px] font-bold border border-amber-500/40 whitespace-nowrap">x2</span>
     </div>
 
-    <!-- 4. Lote de Tasa & Status IA -->
+    <!-- 5. Lote de Tasa & Status IA -->
     <div class="flex gap-1 w-full">
       <span class="flex-1 text-center py-0.5 rounded bg-purple-950 text-purple-300 text-[8px] sm:text-[9px] font-bold border border-purple-500/40 truncate px-0.5" 
             x-text="item.id_tasa || item.lote_tasa_asignado || item.lote_tasa || 'T-ND'"></span>
@@ -49,7 +55,7 @@
       <span x-show="item.procesado_ia" class="px-1 py-0.5 rounded bg-emerald-950 text-emerald-300 text-[8px] sm:text-[9px] font-bold border border-emerald-500/40 flex items-center justify-center whitespace-nowrap">✓ IA</span>
     </div>
 
-    <!-- 5. ME1 / ME2 -->
+    <!-- 6. ME1 / ME2 -->
     <div class="flex flex-col gap-0.5 mt-auto">
       <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-200 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700/60 shadow truncate px-0.5" 
            x-text="'ME1: ' + formatMonto(typeof obtenerME1 === 'function' ? obtenerME1(item) : (item.m1_usdt || item.m1_socio || 0))"></div>
@@ -60,7 +66,7 @@
       </template>
     </div>
 
-    <!-- 6. ACCIONES DE AUDITORÍA -->
+    <!-- 7. ACCIONES DE AUDITORÍA -->
     <div class="flex justify-around items-center pt-1 border-t border-blue-900/30">
       <button @click="eliminarComprobante(item.hash_largo)" class="p-1 text-slate-400 hover:text-rose-400 transition-colors text-sm active:scale-95" title="Eliminar Comprobante">🗑</button>
       <button @click="abrirModalEdicion(item)" class="p-1 text-slate-400 hover:text-cyan-400 transition-colors text-sm active:scale-95" title="Auditar / Editar">✏</button>
