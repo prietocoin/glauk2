@@ -1,12 +1,12 @@
 <!-- ================================================================= -->
 <!-- COMPONENTE: cardFooterBadges.ejs                                  -->
 <!-- UBICACIÓN: views/comprobantes/components/                         -->
-<!-- RESPONSABILIDAD: Recibo R2 (70% ancho), badges/metadatos (30%)    -->
+<!-- RESPONSABILIDAD: Recibo R2 (60-70% ancho), badges/metadatos (30%)  -->
 <!-- ================================================================= -->
 
 <div class="flex items-stretch gap-2 h-48 sm:h-56 md:h-60">
   
-  <!-- VISOR DE IMAGEN R2 (70% de ancho con alto responsive) -->
+  <!-- VISOR DE IMAGEN R2 (60% de ancho con alto responsive) -->
   <div class="w-[60%] shrink-0 bg-[#010309] border border-blue-900/60 rounded-xl overflow-hidden p-1 flex items-center justify-center relative group">
     <button @click="abrirModalEdicion(item)" class="w-full h-full flex items-center justify-center" title="Ampliar / Auditar recibo">
       <template x-if="item.url_r2 || item.url_imagen">
@@ -18,7 +18,7 @@
     </button>
   </div>
 
-  <!-- METADATOS, BADGES Y BOTONERA (30% restante) -->
+  <!-- METADATOS, BADGES Y BOTONERA (40% restante) -->
   <div class="flex-1 min-w-0 flex flex-col justify-between gap-1 py-0.5">
     
     <!-- Hash Corto -->
@@ -46,11 +46,11 @@
     <!-- ME1 / ME2 -->
     <div class="flex flex-col gap-0.5 mt-auto">
       <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-200 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700/60 shadow truncate px-0.5" 
-           x-text="'ME1: ' + formatMonto(obtenerME1(item))"></div>
+           x-text="'ME1: ' + formatMonto(typeof obtenerME1 === 'function' ? obtenerME1(item) : (item.m1_usdt || item.m1_socio || 0))"></div>
       
       <template x-if="(item.socio_2 || item.nombre_socio_2) && (item.socio_2 || item.nombre_socio_2) !== 'GENERAL' && (item.socio_2 || item.nombre_socio_2) !== 'NO DEFINIDO'">
         <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-200 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700/60 shadow truncate px-0.5" 
-             x-text="'ME2: ' + formatMonto(obtenerME2(item))"></div>
+             x-text="'ME2: ' + formatMonto(typeof obtenerME2 === 'function' ? obtenerME2(item) : (item.m2_usdt || item.m2_socio || 0))"></div>
       </template>
     </div>
 
