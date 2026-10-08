@@ -18,7 +18,7 @@ export function limpiarFiltro(val) {
  * cruzando alias y herencias desde el directorio.
  */
 export function filtrarComprobantesPorSocio(items = [], directorio = [], filtroSocio = '') {
-  if (!Array.isArray(items)) return [];
+  if (!Array.isArray(items) || items.length === 0) return [];
 
   const socioBuscado = (filtroSocio || '').trim().toUpperCase();
 
