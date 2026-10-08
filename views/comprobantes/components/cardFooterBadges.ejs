@@ -83,19 +83,23 @@
       </template>
     </div>
 
-    <!-- 7. 🛠️ ACCIONES DE AUDITORÍA -->
-    <div class="flex justify-around items-center pt-1 border-t border-blue-900/40">
-      <button type="button" 
-              @click="$data.eliminarComprobante ? $data.eliminarComprobante(item.hash_largo) : eliminarComprobante(item.hash_largo)" 
-              class="p-1 text-slate-400 hover:text-rose-400 transition-colors text-sm active:scale-95" 
-              title="Eliminar Comprobante">🗑️</button>
-      
-      <button type="button" 
-              @click="$data.abrirModalEdicion ? $data.abrirModalEdicion(item) : abrirModalEdicion(item)" 
-              class="p-1 text-slate-400 hover:text-cyan-400 transition-colors text-sm active:scale-95" 
-              title="Auditar / Editar">✏️</button>
-    </div>
+   <!-- 7. 🛠️ ACCIONES DE AUDITORÍA (CON EVENTO DETENIDO Y SCOPE FORZADO) -->
+  <div class="flex justify-around items-center pt-1 border-t border-blue-900/40">
+    
+    <!-- ELIMINAR -->
+    <button type="button" 
+            @click.stop.prevent="$data.eliminarComprobante(item.hash_largo)" 
+            class="p-1 text-slate-400 hover:text-rose-400 transition-colors text-sm active:scale-95 cursor-pointer" 
+            title="Eliminar Comprobante">
+      🗑️
+    </button>
+    
+    <!-- AUDITAR / EDITAR -->
+    <button type="button" 
+            @click.stop.prevent="$data.abrirModalEdicion(item)" 
+            class="p-1 text-slate-400 hover:text-cyan-400 transition-colors text-sm active:scale-95 cursor-pointer" 
+            title="Auditar / Editar">
+      ✏️
+    </button>
 
   </div>
-
-</div>
