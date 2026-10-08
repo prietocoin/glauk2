@@ -17,7 +17,7 @@ import {
 import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
-import { filtrarComprobantesPorSocio } from '../services/comprobantesFilterService.js'; // 👈 IMPORTADO
+import { filtrarComprobantesPorSocio } from '../services/comprobantesFilterService.js';
 
 export function comprobantesState() {
   const state = {
@@ -63,7 +63,7 @@ export function comprobantesState() {
       });
     },
 
-    // 3. CICLO DE VIDA Y RE-CONSULTA A LA BASE DE DATOS SQL
+    // 3. CICLO DE VIDA Y CONSULTA SQL + CORTAFUEGOS ATÓMICO
     init() {
       this.$nextTick(() => {
         this.cargarComprobantes();
@@ -98,16 +98,14 @@ export function comprobantesState() {
         orden: this.ordenarPor
       };
 
-      // Invocación a la BD
+      // 1. Invocación a PostgreSQL
       const raw = await obtenerComprobantes(params);
       const lista = Array.isArray(raw) ? raw : [];
 
-      // Mapeo inicial
+      // 2. Mapeo inicial
       const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
-      
-      // 🟢 CONTROL DE CALIDAD Y SANITIZACIÓN EN FRONTEND:
-      // Pasa el resultado mapeado por la función del servicio de filtrado para asegurar 
-      // que la vista jamás renderice falsos positivos de titulares bancarios.
+
+      // 3. CORTAFUEGOS ATÓMICO: Descartamos cualquier item donde Socio 1 o Socio 2 NO sea el buscado
       const mapeadosFiltrados = filtrarComprobantesPorSocio(mapeados, this.directorio, this.filtroSocio);
 
       this.items = mapeadosFiltrados;
