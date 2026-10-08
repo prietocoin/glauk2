@@ -8,7 +8,10 @@
   
   <!-- VISOR DE IMAGEN R2 (60% de ancho) -->
   <div class="w-[60%] shrink-0 bg-[#010309] border border-blue-900/60 rounded-xl overflow-hidden p-1 flex items-center justify-center relative group">
-    <button @click="abrirModalEdicion(item)" class="w-full h-full flex items-center justify-center" title="Ampliar / Auditar recibo">
+    <button type="button" 
+            @click="$data.abrirModalEdicion ? $data.abrirModalEdicion(item) : abrirModalEdicion(item)" 
+            class="w-full h-full flex items-center justify-center" 
+            title="Ampliar / Auditar recibo">
       <template x-if="item.url_r2 || item.url_imagen">
         <img :src="item.url_r2 || item.url_imagen" class="w-full h-full object-contain rounded-lg opacity-90 group-hover:opacity-100 transition-opacity" alt="Recibo">
       </template>
@@ -82,8 +85,15 @@
 
     <!-- 7. 🛠️ ACCIONES DE AUDITORÍA -->
     <div class="flex justify-around items-center pt-1 border-t border-blue-900/40">
-      <button @click="eliminarComprobante(item.hash_largo)" class="p-1 text-slate-400 hover:text-rose-400 transition-colors text-sm active:scale-95" title="Eliminar Comprobante">🗑️</button>
-      <button @click="abrirModalEdicion(item)" class="p-1 text-slate-400 hover:text-cyan-400 transition-colors text-sm active:scale-95" title="Auditar / Editar">✏️</button>
+      <button type="button" 
+              @click="$data.eliminarComprobante ? $data.eliminarComprobante(item.hash_largo) : eliminarComprobante(item.hash_largo)" 
+              class="p-1 text-slate-400 hover:text-rose-400 transition-colors text-sm active:scale-95" 
+              title="Eliminar Comprobante">🗑️</button>
+      
+      <button type="button" 
+              @click="$data.abrirModalEdicion ? $data.abrirModalEdicion(item) : abrirModalEdicion(item)" 
+              class="p-1 text-slate-400 hover:text-cyan-400 transition-colors text-sm active:scale-95" 
+              title="Auditar / Editar">✏️</button>
     </div>
 
   </div>
