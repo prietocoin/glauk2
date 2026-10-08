@@ -39,3 +39,29 @@ export function claseInsignia(tipoOp) {
   if (t === 'A') return 'bg-cyan-950 text-cyan-300 border-cyan-500/40';
   return 'bg-slate-800 text-slate-300 border-slate-600';
 }
+
+
+/**
+ * Formatea una fecha/ISO string a formato "Día HH:MM AM/PM" (ej: Jueves 09:37 AM)
+ */
+export function formatDiaHora(fechaStr) {
+  if (!fechaStr) return 'S/F';
+  
+  // Normalizar si viene como datetime-local "YYYY-MM-DDTHH:mm"
+  const iso = fechaStr.includes('T') ? fechaStr : fechaStr.replace(' ', 'T');
+  const date = new Date(iso);
+  
+  if (isNaN(date.getTime())) return 'S/F';
+
+  const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const diaNombre = dias[date.getDay()];
+
+  let horas = date.getHours();
+  const minutos = String(date.getMinutes()).padStart(2, '0');
+  const ampm = horas >= 12 ? 'PM' : 'AM';
+  
+  horas = horas % 12;
+  horas = horas ? horas : 12; // La hora '0' pasa a ser '12'
+
+  return `${diaNombre} ${String(horas).padStart(2, '0')}:${minutos} ${ampm}`;
+}
