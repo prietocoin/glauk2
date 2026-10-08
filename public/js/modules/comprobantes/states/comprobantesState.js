@@ -1,128 +1,57 @@
 /**
- * @file comprobantesState.js
- * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Estado reactivo puro para el módulo de comprobantes.
+ * @file comprobantesFilterService.js
+ * @path public/js/modules/comprobantes/services/comprobantesFilterService.js
+ * @description Servicio atómico de cortafuegos estricto (Socio + Rango de Fechas).
  */
 
-import { 
-  formatMonto, formatTasa, obtenerME1, obtenerME2, 
-  obtenerTasaSocioCalculada, claseInsignia 
-} from '../utils/saldosFilterUtils.js';
+export function limpiarFiltro(val) {
+  if (!val) return '';
+  const str = String(val).trim().toUpperCase();
+  return (str === 'TODOS' || str === 'TODOS LOS SOCIOS' || str === 'GENERAL') ? '' : val;
+}
 
-import { 
-  calcularSociosPendientesConsolidado, 
-  calcularMovimientoFiltradoTotal 
-} from '../services/saldosCalculatorService.js';
+export function filtrarComprobantesAtómico(listaBase = [], directorio = [], filtros = {}) {
+  if (!Array.isArray(listaBase) || listaBase.length === 0) return [];
 
-import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
-import { crearAccionesModal } from '../services/comprobantesModalActions.js';
-import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
-import { filtrarComprobantesPorSocio } from '../services/comprobantesFilterService.js';
+  let resultado = [...listaBase];
+  const socioBuscado = limpiarFiltro(filtros.filtroSocio).toUpperCase();
 
-export function comprobantesState() {
-  const state = {
-    // 1. PROPIEDADES REACTIVAS DE LA VISTA
-    items: [],
-    comprobantes: [],
-    directorio: [],
-    cargando: true,
-    modalAbierto: false,
-    itemEdicion: null,
-    loteActivo: 'T052',
-
-    // Filtros vinculados a los inputs
-    filtroRol: '',
-    filtroSocio: '',
-    filtroFechaInicio: '',
-    filtroFechaFin: '',
-    filtroDesdeHash: '',
-    filtroHastaHash: '',
-    ordenarPor: 'fecha_desc',
-    filtroHashBusqueda: '',
-    saldoAnterior: 0,
-
-    // 2. GETTERS COMPUTADOS PURE
-    get sujetoAuditado() {
-      return (this.filtroSocio && this.filtroSocio !== 'TODOS' && this.filtroSocio !== 'TODOS LOS SOCIOS') 
-        ? this.filtroSocio.toUpperCase() 
-        : 'TODOS LOS SOCIOS';
-    },
-
-    get movimientoFiltradoTotal() {
-      return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
-    },
-
-    get saldoActualTotal() {
-      return (parseFloat(this.saldoAnterior) || 0) + this.movimientoFiltradoTotal;
-    },
-
-    get sociosPendientesConsolidado() {
-      return calcularSociosPendientesConsolidado(this.directorio, this.items, {
-        fechaInicio: this.filtroFechaInicio,
-        fechaFin: this.filtroFechaFin
+  // 1. CORTAFUEGOS ESTRICTO DE SOCIO (Socio 1 o Socio 2)
+  if (socioBuscado) {
+    const sociosValidos = new Set([socioBuscado]);
+    if (Array.isArray(directorio) && directorio.length > 0) {
+      directorio.forEach(d => {
+        const padre = String(d.padre || d.herencia || '').trim().toUpperCase();
+        const nombre = String(d.nombre || '').trim().toUpperCase();
+        if (padre === socioBuscado || nombre === socioBuscado) {
+          if (d.nombre) sociosValidos.add(String(d.nombre).trim().toUpperCase());
+        }
       });
-    },
+    }
 
-    // 3. CICLO DE VIDA Y CONSULTA SQL + CORTAFUEGOS ATÓMICO
-    init() {
-      this.$nextTick(() => {
-        this.cargarComprobantes();
-      });
-    },
+    resultado = resultado.filter(item => {
+      if (!item) return false;
+      const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
+      const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
+      return sociosValidos.has(s1) || sociosValidos.has(s2);
+    });
+  }
 
-    actualizarSocioSeleccionado() {
-      const socioNom = (this.filtroSocio || '').trim().toUpperCase();
-      if (socioNom && socioNom !== 'TODOS' && socioNom !== 'TODOS LOS SOCIOS') {
-        const socioFound = (this.directorio || []).find(d => (d.nombre || '').trim().toUpperCase() === socioNom);
-        const saldoVal = socioFound?.saldo_inicial ?? socioFound?.saldo_anterior;
-        this.saldoAnterior = (saldoVal !== undefined && saldoVal !== null) ? parseFloat(saldoVal) || 0 : 0;
-      } else {
-        this.saldoAnterior = 0;
-      }
-      
-      // Consultamos a la BD con el nuevo socio seleccionado
-      this.cargarComprobantes();
-    },
+  // 2. CORTAFUEGOS DE FECHA INICIO (VET / Caracas)
+  if (filtros.filtroFechaInicio) {
+    const startTs = Math.floor(new Date(filtros.filtroFechaInicio.trim() + 'T00:00:00-04:00').getTime() / 1000);
+    if (!isNaN(startTs)) {
+      resultado = resultado.filter(item => (parseInt(item.timestamp) || 0) >= startTs);
+    }
+  }
 
-    async cargarComprobantes(silencioso = false) {
-      if (!silencioso) this.cargando = true;
+  // 3. CORTAFUEGOS DE FECHA FIN (VET / Caracas)
+  if (filtros.filtroFechaFin) {
+    const endTs = Math.floor(new Date(filtros.filtroFechaFin.trim() + 'T23:59:59-04:00').getTime() / 1000);
+    if (!isNaN(endTs)) {
+      resultado = resultado.filter(item => (parseInt(item.timestamp) || 0) <= endTs);
+    }
+  }
 
-      const params = {
-        socio: this.filtroSocio,
-        rol: this.filtroRol,
-        fechaInicio: this.filtroFechaInicio,
-        fechaFin: this.filtroFechaFin,
-        desdeHash: this.filtroDesdeHash,
-        hastaHash: this.filtroHastaHash,
-        hash: this.filtroHashBusqueda,
-        orden: this.ordenarPor
-      };
-
-      // 1. Invocación a PostgreSQL
-      const raw = await obtenerComprobantes(params);
-      const lista = Array.isArray(raw) ? raw : [];
-
-      // 2. Mapeo inicial
-      const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
-
-      // 3. CORTAFUEGOS ATÓMICO: Descartamos cualquier item donde Socio 1 o Socio 2 NO sea el buscado
-      const mapeadosFiltrados = filtrarComprobantesPorSocio(mapeados, this.directorio, this.filtroSocio);
-
-      this.items = mapeadosFiltrados;
-      this.comprobantes = mapeadosFiltrados;
-      this.cargando = false;
-    },
-
-    // 4. FORMATEADORES IMPORTADOS DIRECTAMENTE
-    formatMonto,
-    formatTasa,
-    obtenerME1,
-    obtenerME2,
-    obtenerTasaSocioCalculada,
-    claseInsignia
-  };
-
-  Object.assign(state, crearAccionesModal(state));
-
-  return state;
+  return resultado;
 }
