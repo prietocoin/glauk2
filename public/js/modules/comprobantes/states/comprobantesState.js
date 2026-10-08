@@ -1,7 +1,7 @@
 /**
  * @file comprobantesState.js
  * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Átomo de estado reactivo Alpine.js (Contenedor puro de estado).
+ * @description Estado reactivo puro sin acoplamientos ni dependencias rotas.
  */
 
 import { 
@@ -26,14 +26,15 @@ export function comprobantesState() {
     items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
     loteActivo: 'T052',
 
-    // Filtros
     filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
     filtroDesdeHash: '', filtroHastaHash: '', ordenarPor: 'fecha_desc', filtroHashBusqueda: '',
     saldoAnterior: 0,
 
-    // 2. GETTERS DELEGADOS
+    // 2. GETTERS COMPUTADOS
     get sujetoAuditado() {
-      return (this.filtroSocio && this.filtroSocio !== 'TODOS') ? this.filtroSocio.toUpperCase() : 'TODOS LOS SOCIOS';
+      return (this.filtroSocio && this.filtroSocio.toUpperCase() !== 'TODOS' && this.filtroSocio.toUpperCase() !== 'TODOS LOS SOCIOS') 
+        ? this.filtroSocio.toUpperCase() 
+        : 'TODOS LOS SOCIOS';
     },
 
     get movimientoFiltradoTotal() {
@@ -50,7 +51,7 @@ export function comprobantesState() {
       });
     },
 
-    // 3. COMUNICACIÓN Y ORQUESTACIÓN (1 LÍNEA POR ACCIÓN)
+    // 3. COMUNICACIÓN Y CARGA DE DATOS
     init() {
       this.$nextTick(() => this.cargarComprobantes());
     },
@@ -73,15 +74,19 @@ export function comprobantesState() {
       const raw = await obtenerComprobantes(params);
       const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-      // Delegación completa del filtrado al servicio atómico
-      const resultadoFinal = filtrarComprobantesAtómico(mapeados, this.directorio, this);
+      // PASAMOS UN OBJETO DE FILTROS LIMPIO (NADA DE OBJETOS RECURSIVOS)
+      const resultadoFinal = filtrarComprobantesAtómico(mapeados, this.directorio, {
+        filtroSocio: this.filtroSocio,
+        filtroFechaInicio: this.filtroFechaInicio,
+        filtroFechaFin: this.filtroFechaFin
+      });
 
       this.items = resultadoFinal;
       this.comprobantes = resultadoFinal;
       this.cargando = false;
     },
 
-    // 4. MÉTODOS AUXILIARES
+    // 4. MÉTODOS Y FORMATEADORES
     formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia
   };
 
