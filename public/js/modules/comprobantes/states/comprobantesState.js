@@ -2,7 +2,7 @@
  * =================================================================
  * @file comprobantesState.js
  * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Estado reactivo puro Alpine.js (Sin getters derivados).
+ * @description Estado reactivo puro Alpine.js.
  * =================================================================
  */
 
@@ -17,7 +17,7 @@ import {
 } from '../services/saldosCalculatorService.js';
 
 import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
-import { crearAccionesModal } from '../services/comprobantesModalActions.js';
+import { comprobantesAcciones } from '../services/comprobantesAcciones.js'; // <-- Módulo de acciones modernizado
 import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
 import { filtrarComprobantesAtómico } from '../services/comprobantesFilterService.js';
 import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/comprobantesSaldosService.js';
@@ -25,7 +25,13 @@ import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/co
 export function comprobantesState() {
   const state = {
     // 1. ESTADO REACTIVO PURO
-    items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
+    items: [], 
+    comprobantes: [], 
+    directorio: [], 
+    cargando: true, 
+    modalAbierto: false, 
+    modalEdicionAbierto: false,
+    itemEdicion: null,
     loteActivo: 'T052',
 
     filtroRol: '', 
@@ -100,7 +106,8 @@ export function comprobantesState() {
     formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia, formatDiaHora
   };
 
-  Object.assign(state, crearAccionesModal(state));
+  // Asignamos las acciones del modal y del flujo de comprobantes
+  Object.assign(state, comprobantesAcciones);
 
   return state;
 }
