@@ -1,7 +1,7 @@
 /**
  * @file comprobantesFilterService.js
  * @path public/js/modules/comprobantes/services/comprobantesFilterService.js
- * @description Servicio atómico de filtrado estricto por socio sin alterar el estado.
+ * @description Servicio atómico de filtrado estricto EXCLUSIVO para casillas de socio.
  */
 
 export function limpiarFiltro(val) {
@@ -11,33 +11,20 @@ export function limpiarFiltro(val) {
 }
 
 /**
- * Auxiliar atómico para extraer el nombre real del socio descartando
- * valores nulos, genéricos o titularidades bancarias.
- */
-function extraerNombreSocioLimpio(valor) {
-  if (!valor || typeof valor !== 'string') return '';
-  const limpio = valor.trim().toUpperCase();
-  if (!limpio || limpio === 'GENERAL' || limpio === 'NO DEFINIDO' || limpio === 'N/A' || limpio === '-') {
-    return '';
-  }
-  return limpio;
-}
-
-/**
- * Filtra comprobantes comparando de forma estricta contra Socio 1 o Socio 2,
- * imitando la cláusula SQL original de PostgreSQL por coincidencia exacta.
+ * Filtra la lista evaluando ÚNICAMENTE los recuadros visuales de Socio 1 y Socio 2.
+ * Ignora por completo titulares bancarios, bancos, referencias o metadatos.
  */
 export function filtrarComprobantesPorSocio(listaBase = [], directorio = [], filtroSocio = '') {
   if (!Array.isArray(listaBase) || listaBase.length === 0) return [];
 
-  const socioBuscado = limpiarFiltro(filtroSocio).toUpperCase();
+  const socioBuscado = (filtroSocio || '').trim().toUpperCase();
 
-  // Si no hay filtro o es global, devuelve toda la lista
-  if (!socioBuscado) {
+  // Si no hay filtro o es "Todos", deja pasar la lista intacta
+  if (!socioBuscado || socioBuscado === 'TODOS' || socioBuscado === 'TODOS LOS SOCIOS') {
     return listaBase;
   }
 
-  // 1. Mapear socios válidos (incluyendo herencias de la tabla nombres_fb si existen)
+  // Set de nombres autorizados (Socio buscado + herencias del directorio)
   const sociosValidos = new Set([socioBuscado]);
   if (Array.isArray(directorio) && directorio.length > 0) {
     directorio.forEach(d => {
@@ -49,20 +36,17 @@ export function filtrarComprobantesPorSocio(listaBase = [], directorio = [], fil
     });
   }
 
-  // 2. Compara EXCLUSIVAMENTE sobre las propiedades reales de Socio 1 y Socio 2
   return listaBase.filter(item => {
     if (!item) return false;
 
-    // Extracción limpia y sanitizada de Socio 1 y Socio 2 (Descarta Titular)
-    const s1 = extraerNombreSocioLimpio(item.nombre_socio_1) || 
-               extraerNombreSocioLimpio(item.socio_1) || 
-               extraerNombreSocioLimpio(item.fb_socio_1);
+    // ⛔ LEEMOS EXCLUSIVAMENTE LAS CASILLAS DE SOCIOS (IGNORANDO TITULAR/BANCO)
+    const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
+    const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
 
-    const s2 = extraerNombreSocioLimpio(item.nombre_socio_2) || 
-               extraerNombreSocioLimpio(item.socio_2) || 
-               extraerNombreSocioLimpio(item.fb_socio_2);
+    // Compara igualdad estricta contra el Set de socios
+    const coincideSocio1 = sociosValidos.has(s1);
+    const coincideSocio2 = sociosValidos.has(s2);
 
-    // Solo aprueba si Socio 1 o Socio 2 coinciden exactamente con la lista de socios válidos
-    return sociosValidos.has(s1) || sociosValidos.has(s2);
+    return coincideSocio1 || coincideSocio2;
   });
 }
