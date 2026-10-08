@@ -27,6 +27,35 @@ function registrarApp() {
   }));
 }
 
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-abrir-modal');
+  if (!btn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  try {
+    const rawData = btn.getAttribute('data-item');
+    if (!rawData) return;
+
+    const item = JSON.parse(rawData);
+    
+    // Obtenemos la instancia raíz de Alpine en el body
+    const appEl = document.querySelector('[x-data]');
+    if (appEl && window.Alpine) {
+      const state = Alpine.$data(appEl);
+      if (typeof state.abrirModalEdicion === 'function') {
+        state.abrirModalEdicion(item);
+      } else {
+        state.itemEdicion = item;
+        state.modalAbierto = true;
+      }
+    }
+  } catch (err) {
+    console.error('Error al capturar clic de apertura de modal:', err);
+  }
+});
+
 if (window.Alpine) {
   registrarApp();
 } else {
