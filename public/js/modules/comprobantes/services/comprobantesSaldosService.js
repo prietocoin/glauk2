@@ -2,13 +2,13 @@
  * =================================================================
  * @file comprobantesSaldosService.js
  * @path public/js/modules/comprobantes/services/comprobantesSaldosService.js
- * @description Servicio atómico para resolución de saldos e identificación del sujeto auditado.
+ * @description Servicio atómico para resolución de saldos e identificación de sujetos.
  * =================================================================
  */
 
 export function obtenerSaldoAnteriorSocio(directorio = [], socioNombre = '') {
   const socioNom = String(socioNombre || '').trim().toUpperCase();
-  if (!socioNom || socioNom === 'TODOS' || socioNom === 'TODOS LOS SOCIOS') {
+  if (!socioNom || socioNom === 'TODOS' || socioNom === 'TODOS LOS SOCIOS' || socioNom === 'GENERAL') {
     return 0;
   }
 
@@ -26,12 +26,18 @@ export function obtenerSaldoAnteriorSocio(directorio = [], socioNombre = '') {
 }
 
 /**
- * Resuelve el texto exacto para la tarjeta de entidad auditada
+ * Servicio puro: Resuelve el nombre del sujeto auditado a mostrar en el KPI.
+ * Retorna 'TODOS LOS SOCIOS' únicamente cuando el filtro esté vacío o sea 'TODOS'.
  */
 export function obtenerSujetoAuditado(filtroSocio = '') {
-  const socioNom = String(filtroSocio || '').trim().toUpperCase();
-  if (!socioNom || socioNom === 'TODOS' || socioNom === 'TODOS LOS SOCIOS' || socioNom === 'GENERAL') {
+  if (!filtroSocio) return 'TODOS LOS SOCIOS';
+
+  // Si filtroSocio viene como objeto o string, extraemos el texto
+  const str = (typeof filtroSocio === 'object' ? (filtroSocio.nombre || '') : String(filtroSocio)).trim().toUpperCase();
+
+  if (!str || str === 'TODOS' || str === 'TODOS LOS SOCIOS' || str === 'GENERAL') {
     return 'TODOS LOS SOCIOS';
   }
-  return socioNom;
+
+  return str;
 }
