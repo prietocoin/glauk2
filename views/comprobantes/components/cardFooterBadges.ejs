@@ -4,9 +4,9 @@
 <!-- RESPONSABILIDAD: Recibo R2 (60% ancho), badges/metadatos (40%)    -->
 <!-- ================================================================= -->
 
-<div class="flex items-stretch gap-2 h-48 sm:h-56 md:h-60">
+<div class="flex items-stretch gap-2 h-52 sm:h-60 md:h-64">
   
-  <!-- VISOR DE IMAGEN R2 (60% de ancho con alto responsive) -->
+  <!-- VISOR DE IMAGEN R2 (60% de ancho) -->
   <div class="w-[60%] shrink-0 bg-[#010309] border border-blue-900/60 rounded-xl overflow-hidden p-1 flex items-center justify-center relative group">
     <button @click="abrirModalEdicion(item)" class="w-full h-full flex items-center justify-center" title="Ampliar / Auditar recibo">
       <template x-if="item.url_r2 || item.url_imagen">
@@ -21,18 +21,17 @@
   <!-- METADATOS, BADGES Y BOTONERA (40% restante) -->
   <div class="flex-1 min-w-0 flex flex-col justify-between gap-1 py-0.5">
     
-    <!-- 📅 INSIGNIA DE FECHA / HORA (UBICADA ARRIBA DEL HASH) -->
-    <template x-if="item.timestamp_comprobante || item.timestamp">
-      <div class="w-full text-center py-0.5 rounded bg-cyan-950/80 text-cyan-300 font-mono text-[8px] sm:text-[9px] font-bold border border-cyan-500/40 shadow truncate px-0.5">
-        📅 <span x-text="formatFechaVE(item.timestamp_comprobante || item.timestamp)"></span>
-      </div>
-    </template>
+    <!-- 1. 📅 INSIGNIA DE FECHA / HORA (UBICADA JUSTO ARRIBA DEL HASH) -->
+    <div class="w-full text-center py-0.5 rounded bg-cyan-950/90 text-cyan-300 font-mono text-[8px] sm:text-[9px] font-bold border border-cyan-500/50 shadow truncate px-0.5"
+         title="Fecha del comprobante">
+      📅 <span x-text="item.fecha_comprobante || item.fecha || (item.timestamp_comprobante || item.timestamp ? formatFechaVE(item.timestamp_comprobante || item.timestamp) : 'S/F')"></span>
+    </div>
 
-    <!-- Hash Corto -->
+    <!-- 2. Hash Corto -->
     <span class="w-full text-center py-0.5 rounded bg-slate-800/90 text-slate-300 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700 truncate px-0.5 shadow" 
           title="Hash de verificación" x-text="item.hash_corto || (item.hash_largo ? item.hash_largo.substring(0,8) : 'HASH')"></span>
     
-    <!-- Tipo de Operación & Badge x2 -->
+    <!-- 3. Tipo de Operación & Badge x2 -->
     <div class="flex gap-1 w-full">
       <span class="flex-1 text-center py-0.5 rounded text-[8px] sm:text-[9px] font-bold border whitespace-nowrap truncate px-0.5" 
             :class="claseInsignia((item.tipo_op_socio || item.tipo_op || item.tipo_manual || 'D').split('-')[0])" 
@@ -42,7 +41,7 @@
             class="px-1 py-0.5 rounded bg-amber-950 text-amber-300 text-[8px] sm:text-[9px] font-bold border border-amber-500/40 whitespace-nowrap">x2</span>
     </div>
 
-    <!-- Lote de Tasa & Status IA -->
+    <!-- 4. Lote de Tasa & Status IA -->
     <div class="flex gap-1 w-full">
       <span class="flex-1 text-center py-0.5 rounded bg-purple-950 text-purple-300 text-[8px] sm:text-[9px] font-bold border border-purple-500/40 truncate px-0.5" 
             x-text="item.id_tasa || item.lote_tasa_asignado || item.lote_tasa || 'T-ND'"></span>
@@ -50,7 +49,7 @@
       <span x-show="item.procesado_ia" class="px-1 py-0.5 rounded bg-emerald-950 text-emerald-300 text-[8px] sm:text-[9px] font-bold border border-emerald-500/40 flex items-center justify-center whitespace-nowrap">✓ IA</span>
     </div>
 
-    <!-- ME1 / ME2 -->
+    <!-- 5. ME1 / ME2 -->
     <div class="flex flex-col gap-0.5 mt-auto">
       <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-200 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700/60 shadow truncate px-0.5" 
            x-text="'ME1: ' + formatMonto(typeof obtenerME1 === 'function' ? obtenerME1(item) : (item.m1_usdt || item.m1_socio || 0))"></div>
@@ -61,7 +60,7 @@
       </template>
     </div>
 
-    <!-- ACCIONES DE AUDITORÍA -->
+    <!-- 6. ACCIONES DE AUDITORÍA -->
     <div class="flex justify-around items-center pt-1 border-t border-blue-900/30">
       <button @click="eliminarComprobante(item.hash_largo)" class="p-1 text-slate-400 hover:text-rose-400 transition-colors text-sm active:scale-95" title="Eliminar Comprobante">🗑</button>
       <button @click="abrirModalEdicion(item)" class="p-1 text-slate-400 hover:text-cyan-400 transition-colors text-sm active:scale-95" title="Auditar / Editar">✏</button>
