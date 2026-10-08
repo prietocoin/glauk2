@@ -1,73 +1,84 @@
 <!-- ================================================================= -->
 <!-- COMPONENTE: modalEditarCampos.ejs                                 -->
-<!-- UBICACIÓN: views/comprobantes/components/                          -->
+<!-- UBICACIÓN: views/comprobantes/components/                         -->
 <!-- RESPONSABILIDAD: Cuadrícula de inputs de edición del comprobante   -->
 <!-- ================================================================= -->
 
-<div class="space-y-3 text-xs">
-  <!-- BLOQUE 1: DATOS BANCARIOS -->
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-[#030611] p-2.5 rounded-xl border border-blue-900/60">
-    <div>
-      <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Banco</label>
-      <input type="text" x-model="itemEdicion.banco" placeholder="Ej: BANCOLOMBIA" class="w-full bg-[#080e26] border border-blue-900/80 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none uppercase focus:border-cyan-400">
-    </div>
-    <div>
-      <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Nº Referencia</label>
-      <input type="text" x-model="itemEdicion.referencia" placeholder="Ej: 123456" class="w-full bg-[#080e26] border border-blue-900/80 rounded-lg px-2 py-1.5 text-xs text-cyan-300 font-mono font-bold outline-none focus:border-cyan-400">
-    </div>
-    <div>
-      <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Titular Cuenta</label>
-      <input type="text" x-model="itemEdicion.titular" placeholder="Ej: JUAN PEREZ" class="w-full bg-[#080e26] border border-blue-900/80 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none uppercase focus:border-cyan-400">
-    </div>
-  </div>
+<template x-if="itemEdicion">
+  <div class="space-y-3 text-xs">
+    
+    <!-- BLOQUE 1: DATOS BANCARIOS Y FECHA -->
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-[#030611] p-2.5 rounded-xl border border-blue-900/60">
+      <div class="sm:col-span-1">
+        <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Banco</label>
+        <input type="text" x-model="itemEdicion.banco" placeholder="Ej: BANCOLOMBIA" class="w-full bg-[#080e26] border border-blue-900/80 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none uppercase focus:border-cyan-400">
+      </div>
+      
+      <div class="sm:col-span-1">
+        <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Nº Referencia</label>
+        <input type="text" x-model="itemEdicion.referencia" placeholder="Ej: 123456" class="w-full bg-[#080e26] border border-blue-900/80 rounded-lg px-2 py-1.5 text-xs text-cyan-300 font-mono font-bold outline-none focus:border-cyan-400">
+      </div>
 
-  <!-- BLOQUE 2: VALORES FINANCIEROS Y TASA -->
-  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#030611] p-2.5 rounded-xl border border-blue-900/60">
-    <div>
-      <label class="block text-[8px] font-bold text-emerald-400 uppercase mb-0.5">Monto Recibo</label>
-      <input type="number" step="any" x-model="itemEdicion.monto" class="w-full bg-[#080e26] border border-emerald-500/40 rounded-lg px-2 py-1.5 text-xs text-emerald-300 font-mono font-bold outline-none">
-    </div>
-    <div>
-      <label class="block text-[8px] font-bold text-emerald-400 uppercase mb-0.5">Moneda</label>
-      <select x-model="itemEdicion.moneda" class="w-full bg-[#080e26] border border-emerald-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
-        <template x-for="m in ['COP','USD','USDT','VES','ARS','PEN','CLP']" :key="m">
-          <option :value="m" x-text="m"></option>
-        </template>
-      </select>
-    </div>
-    <div>
-      <label class="block text-[8px] font-bold text-purple-400 uppercase mb-0.5">Lote Tasa</label>
-      <input type="text" x-model="itemEdicion.lote_tasa_asignado" placeholder="T052" class="w-full bg-[#080e26] border border-purple-500/40 rounded-lg px-2 py-1.5 text-xs text-purple-300 font-mono font-bold outline-none uppercase">
-    </div>
-    <div>
-      <label class="block text-[8px] font-bold text-amber-400 uppercase mb-0.5">Operación</label>
-      <select x-model="itemEdicion.tipo_manual" class="w-full bg-[#080e26] border border-amber-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
-        <option value="D">D (Depósito)</option>
-        <option value="P">P (Pago)</option>
-        <option value="A">A (Abono)</option>
-      </select>
-    </div>
-  </div>
+      <div class="sm:col-span-1">
+        <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Titular Cuenta</label>
+        <input type="text" x-model="itemEdicion.titular" placeholder="Ej: JUAN PEREZ" class="w-full bg-[#080e26] border border-blue-900/80 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none uppercase focus:border-cyan-400">
+      </div>
 
-  <!-- BLOQUE 3: ASIGNACIÓN DE SOCIOS -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-    <div>
-      <label class="block text-[9px] font-bold text-cyan-400 uppercase mb-0.5">Socio 1 (Impacto)</label>
-      <select x-model="itemEdicion.nombre_socio_1" class="w-full bg-[#030611] border border-cyan-500/40 rounded-xl px-2 py-1.5 text-xs text-white font-bold outline-none">
-        <option value="GENERAL">GENERAL</option>
-        <template x-for="s in (directorio || [])" :key="'ed-s1-'+(s.nombre || s)">
-          <option :value="s.nombre || s" x-text="s.nombre || s"></option>
-        </template>
-      </select>
+      <div class="sm:col-span-1">
+        <label class="block text-[8px] font-bold text-cyan-400 uppercase mb-0.5">📅 Fecha / Hora</label>
+        <input type="datetime-local" x-model="itemEdicion.fecha_hora_input" class="w-full bg-[#080e26] border border-cyan-500/40 rounded-lg px-2 py-1.5 text-[11px] text-cyan-300 font-mono font-bold outline-none focus:border-cyan-400">
+      </div>
     </div>
-    <div>
-      <label class="block text-[9px] font-bold text-pink-400 uppercase mb-0.5">Socio 2 (Contraparte)</label>
-      <select x-model="itemEdicion.nombre_socio_2" class="w-full bg-[#030611] border border-pink-500/40 rounded-xl px-2 py-1.5 text-xs text-white font-bold outline-none">
-        <option value="GENERAL">GENERAL</option>
-        <template x-for="s in (directorio || [])" :key="'ed-s2-'+(s.nombre || s)">
-          <option :value="s.nombre || s" x-text="s.nombre || s"></option>
-        </template>
-      </select>
+
+    <!-- BLOQUE 2: VALORES FINANCIEROS Y TASA -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#030611] p-2.5 rounded-xl border border-blue-900/60">
+      <div>
+        <label class="block text-[8px] font-bold text-emerald-400 uppercase mb-0.5">Monto Recibo</label>
+        <input type="number" step="any" x-model="itemEdicion.monto" class="w-full bg-[#080e26] border border-emerald-500/40 rounded-lg px-2 py-1.5 text-xs text-emerald-300 font-mono font-bold outline-none">
+      </div>
+      <div>
+        <label class="block text-[8px] font-bold text-emerald-400 uppercase mb-0.5">Moneda</label>
+        <select x-model="itemEdicion.moneda" class="w-full bg-[#080e26] border border-emerald-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
+          <template x-for="m in ['COP','USD','USDT','VES','ARS','PEN','CLP']" :key="m">
+            <option :value="m" x-text="m" :selected="m === itemEdicion.moneda"></option>
+          </template>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[8px] font-bold text-purple-400 uppercase mb-0.5">Lote Tasa</label>
+        <input type="text" x-model="itemEdicion.lote_tasa_asignado" placeholder="T052" class="w-full bg-[#080e26] border border-purple-500/40 rounded-lg px-2 py-1.5 text-xs text-purple-300 font-mono font-bold outline-none uppercase">
+      </div>
+      <div>
+        <label class="block text-[8px] font-bold text-amber-400 uppercase mb-0.5">Operación</label>
+        <select x-model="itemEdicion.tipo_manual" class="w-full bg-[#080e26] border border-amber-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
+          <option value="D">D (Depósito)</option>
+          <option value="P">P (Pago)</option>
+          <option value="A">A (Abono)</option>
+        </select>
+      </div>
     </div>
+
+    <!-- BLOQUE 3: ASIGNACIÓN DE SOCIOS -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div>
+        <label class="block text-[9px] font-bold text-cyan-400 uppercase mb-0.5">Socio 1 (Impacto)</label>
+        <select x-model="itemEdicion.nombre_socio_1" class="w-full bg-[#030611] border border-cyan-500/40 rounded-xl px-2 py-1.5 text-xs text-white font-bold outline-none">
+          <option value="GENERAL">GENERAL</option>
+          <template x-for="s in (directorio || [])" :key="'ed-s1-'+(s.nombre || s)">
+            <option :value="s.nombre || s" x-text="s.nombre || s" :selected="(s.nombre || s) === itemEdicion.nombre_socio_1"></option>
+          </template>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[9px] font-bold text-pink-400 uppercase mb-0.5">Socio 2 (Contraparte)</label>
+        <select x-model="itemEdicion.nombre_socio_2" class="w-full bg-[#030611] border border-pink-500/40 rounded-xl px-2 py-1.5 text-xs text-white font-bold outline-none">
+          <option value="GENERAL">GENERAL</option>
+          <template x-for="s in (directorio || [])" :key="'ed-s2-'+(s.nombre || s)">
+            <option :value="s.nombre || s" x-text="s.nombre || s" :selected="(s.nombre || s) === itemEdicion.nombre_socio_2"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+
   </div>
-</div>
+</template>
