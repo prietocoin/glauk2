@@ -1,7 +1,9 @@
 /**
+ * =================================================================
  * @file comprobantesState.js
  * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Estado reactivo puro sin acoplamientos ni dependencias rotas.
+ * @description Estado reactivo puro Alpine.js (Orquestador ligero).
+ * =================================================================
  */
 
 import { 
@@ -22,7 +24,7 @@ import { obtenerSaldoAnteriorSocio } from '../services/comprobantesSaldosService
 
 export function comprobantesState() {
   const state = {
-    // 1. PROPIEDADES REACTIVAS BASE
+    // 1. ESTADO REACTIVO PURE
     items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
     loteActivo: 'T052',
 
@@ -30,7 +32,7 @@ export function comprobantesState() {
     filtroDesdeHash: '', filtroHastaHash: '', ordenarPor: 'fecha_desc', filtroHashBusqueda: '',
     saldoAnterior: 0,
 
-    // 2. GETTERS COMPUTADOS
+    // 2. GETTERS
     get sujetoAuditado() {
       return (this.filtroSocio && this.filtroSocio.toUpperCase() !== 'TODOS' && this.filtroSocio.toUpperCase() !== 'TODOS LOS SOCIOS') 
         ? this.filtroSocio.toUpperCase() 
@@ -51,7 +53,18 @@ export function comprobantesState() {
       });
     },
 
-    // 3. COMUNICACIÓN Y CARGA DE DATOS
+    // 3. FORMATEADOR DE FECHA DELEGADO
+    formatFechaVE(ts) {
+      if (!ts) return '-';
+      const date = new Date(parseInt(ts) * 1000);
+      if (isNaN(date.getTime())) return '-';
+      return date.toLocaleDateString('es-VE', { 
+        timeZone: 'America/Caracas', 
+        day: '2-digit', month: '2-digit', year: 'numeric' 
+      });
+    },
+
+    // 4. CICLO DE VIDA Y CONSULTAS
     init() {
       this.$nextTick(() => this.cargarComprobantes());
     },
@@ -71,10 +84,11 @@ export function comprobantesState() {
         hash: this.filtroHashBusqueda, orden: this.ordenarPor
       };
 
+      // Invocación a lectura HTTP
       const raw = await obtenerComprobantes(params);
       const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-      // PASAMOS UN OBJETO DE FILTROS LIMPIO (NADA DE OBJETOS RECURSIVOS)
+      // Delegación completa del filtrado al servicio atómico
       const resultadoFinal = filtrarComprobantesAtómico(mapeados, this.directorio, {
         filtroSocio: this.filtroSocio,
         filtroFechaInicio: this.filtroFechaInicio,
@@ -86,7 +100,7 @@ export function comprobantesState() {
       this.cargando = false;
     },
 
-    // 4. MÉTODOS Y FORMATEADORES
+    // 5. FORMATEADORES IMPORTADOS DIRECTOS
     formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia
   };
 
