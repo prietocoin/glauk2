@@ -68,20 +68,19 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
       });
     }
   }
+// 4. ORDENAMIENTO GARANTIZADO POR FECHA HORA COMPROBANTE
+const criterioOrden = String(filtros.filtroOrden || 'fecha_desc').toLowerCase();
 
-  // 4. ORDENAMIENTO DINÁMICO POR FECHA
-  const criterioOrden = String(filtros.filtroOrden || filtros.ordenarPor || 'fecha_desc').toLowerCase();
+resultado.sort((a, b) => {
+  const msA = new Date(a.fecha_hora_comprobante || 0).getTime();
+  const msB = new Date(b.fecha_hora_comprobante || 0).getTime();
 
-  resultado.sort((a, b) => {
-    const dateA = new Date(a.fecha_hora_comprobante || a.created_at || a.fecha || 0).getTime();
-    const dateB = new Date(b.fecha_hora_comprobante || b.created_at || b.fecha || 0).getTime();
-
-    if (criterioOrden.includes('asc') || criterioOrden.includes('antiguo')) {
-      return dateA - dateB; // Antiguos primero
-    } else {
-      return dateB - dateA; // Recientes primero (Default)
-    }
-  });
+  if (criterioOrden === 'fecha_asc' || criterioOrden.includes('antiguo')) {
+    return msA - msB; // Menor ms primero (Antiguos a la izquierda)
+  } else {
+    return msB - msA; // Mayor ms primero (Recientes a la izquierda)
+  }
+});
 
   return resultado;
 }
