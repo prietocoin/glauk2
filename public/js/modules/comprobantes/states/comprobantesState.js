@@ -17,6 +17,7 @@ import {
 import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
+import { filtrarComprobantesPorSocio } from '../services/comprobantesFilterService.js'; // 👈 IMPORTADO
 
 export function comprobantesState() {
   const state = {
@@ -97,14 +98,20 @@ export function comprobantesState() {
         orden: this.ordenarPor
       };
 
-      // Invocación directa a PostgreSQL a través del servicio
+      // Invocación a la BD
       const raw = await obtenerComprobantes(params);
       const lista = Array.isArray(raw) ? raw : [];
 
-      // Mapeamos los elementos para la UI y asignamos a la lista
+      // Mapeo inicial
       const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
-      this.items = mapeados;
-      this.comprobantes = mapeados;
+      
+      // 🟢 CONTROL DE CALIDAD Y SANITIZACIÓN EN FRONTEND:
+      // Pasa el resultado mapeado por la función del servicio de filtrado para asegurar 
+      // que la vista jamás renderice falsos positivos de titulares bancarios.
+      const mapeadosFiltrados = filtrarComprobantesPorSocio(mapeados, this.directorio, this.filtroSocio);
+
+      this.items = mapeadosFiltrados;
+      this.comprobantes = mapeadosFiltrados;
       this.cargando = false;
     },
 
