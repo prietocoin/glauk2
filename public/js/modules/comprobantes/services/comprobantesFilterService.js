@@ -2,7 +2,7 @@
  * =================================================================
  * @file comprobantesFilterService.js
  * @path public/js/modules/comprobantes/services/comprobantesFilterService.js
- * @description Servicio atómico de cortafuegos por socio y fecha_hora_comprobante.
+ * @description Servicio atómico de cortafuegos y ordenamiento por socio y fecha_hora_comprobante.
  * =================================================================
  */
 
@@ -39,7 +39,7 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
     });
   }
 
-  // 2. FILTRADO REAL POR FECHA INICIO (fecha_hora_comprobante)
+  // 2. FILTRADO POR FECHA INICIO (fecha_hora_comprobante)
   if (filtros.filtroFechaInicio) {
     const startObj = new Date(String(filtros.filtroFechaInicio).trim() + 'T00:00:00');
     if (!isNaN(startObj.getTime())) {
@@ -54,7 +54,7 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
     }
   }
 
-  // 3. FILTRADO REAL POR FECHA FIN (fecha_hora_comprobante)
+  // 3. FILTRADO POR FECHA FIN (fecha_hora_comprobante)
   if (filtros.filtroFechaFin) {
     const endObj = new Date(String(filtros.filtroFechaFin).trim() + 'T23:59:59');
     if (!isNaN(endObj.getTime())) {
@@ -68,6 +68,20 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
       });
     }
   }
+
+  // 4. ORDENAMIENTO DINÁMICO POR FECHA
+  const criterioOrden = String(filtros.filtroOrden || filtros.ordenarPor || 'fecha_desc').toLowerCase();
+
+  resultado.sort((a, b) => {
+    const dateA = new Date(a.fecha_hora_comprobante || a.created_at || a.fecha || 0).getTime();
+    const dateB = new Date(b.fecha_hora_comprobante || b.created_at || b.fecha || 0).getTime();
+
+    if (criterioOrden.includes('asc') || criterioOrden.includes('antiguo')) {
+      return dateA - dateB; // Antiguos primero
+    } else {
+      return dateB - dateA; // Recientes primero (Default)
+    }
+  });
 
   return resultado;
 }
