@@ -1,7 +1,7 @@
 <!-- ================================================================= -->
 <!-- COMPONENTE: cardFooterBadges.ejs                                  -->
 <!-- UBICACIÓN: views/comprobantes/components/                         -->
-<!-- RESPONSABILIDAD: Recibo R2 (60-70% ancho), badges/metadatos (30%)  -->
+<!-- RESPONSABILIDAD: Recibo R2 (60% ancho), badges/metadatos (40%)    -->
 <!-- ================================================================= -->
 
 <div class="flex items-stretch gap-2 h-48 sm:h-56 md:h-60">
@@ -21,6 +21,13 @@
   <!-- METADATOS, BADGES Y BOTONERA (40% restante) -->
   <div class="flex-1 min-w-0 flex flex-col justify-between gap-1 py-0.5">
     
+    <!-- 📅 INSIGNIA DE FECHA / HORA (UBICADA ARRIBA DEL HASH) -->
+    <template x-if="item.timestamp_comprobante || item.timestamp">
+      <div class="w-full text-center py-0.5 rounded bg-cyan-950/80 text-cyan-300 font-mono text-[8px] sm:text-[9px] font-bold border border-cyan-500/40 shadow truncate px-0.5">
+        📅 <span x-text="formatFechaVE(item.timestamp_comprobante || item.timestamp)"></span>
+      </div>
+    </template>
+
     <!-- Hash Corto -->
     <span class="w-full text-center py-0.5 rounded bg-slate-800/90 text-slate-300 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700 truncate px-0.5 shadow" 
           title="Hash de verificación" x-text="item.hash_corto || (item.hash_largo ? item.hash_largo.substring(0,8) : 'HASH')"></span>
