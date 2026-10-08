@@ -1,7 +1,9 @@
 /**
+ * =================================================================
  * @file comprobantesSaldosService.js
  * @path public/js/modules/comprobantes/services/comprobantesSaldosService.js
- * @description Servicio atómico para resolución de saldos iniciales desde directorio.
+ * @description Servicio atómico para resolución de saldos iniciales desde el directorio.
+ * =================================================================
  */
 
 export function obtenerSaldoAnteriorSocio(directorio = [], socioNombre = '') {
