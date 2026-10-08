@@ -1,27 +1,29 @@
 <!-- ================================================================= -->
 <!-- COMPONENTE: cardHeader.ejs                                        -->
 <!-- UBICACIÓN: views/comprobantes/components/                         -->
-<!-- RESPONSABILIDAD: Cabecera de la tarjeta con fecha, hash y badges  -->
+<!-- RESPONSABILIDAD: Cabecera visual de la tarjeta con monto, fecha y hash -->
 <!-- ================================================================= -->
 
 <div class="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
   
-  <!-- LADO IZQUIERDO: MONTO PRINCIPAL Y DIVISA -->
+  <!-- MONTO Y MONEDA -->
   <div class="flex items-baseline gap-1.5 min-w-0">
     <span class="text-lg md:text-xl font-black text-emerald-400 tracking-tight" x-text="formatMonto(item.monto)"></span>
     <span class="text-xs font-bold text-slate-300 uppercase" x-text="item.moneda || '---'"></span>
   </div>
 
-  <!-- LADO DERECHO: INSIGNIA DE FECHA + HASH Y BADGES -->
+  <!-- INSIGNIAS DERECHAS: FECHA, HASH, CONTEO E IA -->
   <div class="flex flex-col items-end gap-1 shrink-0">
     
-    <!-- 📅 INSIGNIA DE FECHA / HORA VET ARRIBA DEL HASH -->
-    <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-700/80 px-1.5 py-0.5 rounded-md text-[9px] font-mono text-cyan-300 font-bold shadow-sm">
-      <span>📅</span>
-      <span x-text="formatFechaVE(item.timestamp)"></span>
-    </div>
+    <!-- INSIGNIA DE FECHA / HORA -->
+    <template x-if="item.timestamp">
+      <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-700/80 px-1.5 py-0.5 rounded-md text-[9px] font-mono text-cyan-300 font-bold shadow-sm">
+        <span>📅</span>
+        <span x-text="formatFechaVE(item.timestamp)"></span>
+      </div>
+    </template>
 
-    <!-- HASH Y BADGES DE CONTEO / IA -->
+    <!-- HASH Y ESTADO -->
     <div class="flex items-center gap-1">
       <span class="px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-300 font-mono text-[10px] font-bold border border-purple-500/30 truncate max-w-[90px]" x-text="item.hash_corto || 'OP'"></span>
       <span class="px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[8px] font-bold" x-text="'x' + (item.conteo || 1)"></span>
