@@ -1,7 +1,7 @@
 /**
  * @file comprobantesModalActions.js
  * @path public/js/modules/comprobantes/services/comprobantesModalActions.js
- * @description Acciones atómicas de mutación y flujo para el modal de comprobantes.
+ * @description Acciones atómicas blindadas para el modal de comprobantes.
  */
 import { 
   guardarCambiosComprobante, 
@@ -14,15 +14,28 @@ export function crearAccionesModal(state) {
   return {
     abrirModalEdicion(item) {
       if (!item) return;
-      state.itemEdicion = prepararEdicionComprobante(item, state.loteActivo);
+      
+      try {
+        // Asignación mapeada con fallback directo si el mapper falla
+        state.itemEdicion = typeof prepararEdicionComprobante === 'function' 
+          ? prepararEdicionComprobante(item, state.loteActivo || 'T052') 
+          : { ...item };
+      } catch (e) {
+        console.warn('[ModalActions] Error en mapper, usando fallback copia direct:', e);
+        state.itemEdicion = { ...item };
+      }
+
+      // Cambiar visibilidad del modal INMEDIATAMENTE
       state.modalAbierto = true;
     },
 
-    // Alias directo sin referencias circulares a 'acciones'
     abrirModal(item) {
-      if (!item) return;
-      state.itemEdicion = prepararEdicionComprobante(item, state.loteActivo);
-      state.modalAbierto = true;
+      this.abrirModalEdicion(item);
+    },
+
+    cerrarModalEdicion() {
+      state.modalAbierto = false;
+      state.itemEdicion = null;
     },
 
     async guardarCambios() {
