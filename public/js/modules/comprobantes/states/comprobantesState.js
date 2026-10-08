@@ -2,7 +2,7 @@
  * =================================================================
  * @file comprobantesState.js
  * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Estado reactivo puro Alpine.js (Orquestador ligero).
+ * @description Estado reactivo magro Alpine.js (Orquestador ligero).
  * =================================================================
  */
 
@@ -24,7 +24,7 @@ import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/co
 
 export function comprobantesState() {
   const state = {
-    // 1. ESTADO REACTIVO PURE
+    // 1. ESTADO REACTIVO PURO (Sin funciones lógicas pesadas)
     items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
     loteActivo: 'T052',
 
@@ -38,7 +38,7 @@ export function comprobantesState() {
     filtroHash: '', 
     saldoAnterior: 0,
 
-    // 2. GETTERS DELEGADOS A SERVICIOS ATÓMICOS
+    // 2. GETTERS MAGROS (Delegación directa a Servicios)
     get sujetoAuditado() {
       return obtenerSujetoAuditado(this.filtroSocio);
     },
@@ -57,18 +57,7 @@ export function comprobantesState() {
       });
     },
 
-    // 3. FORMATEADOR DE FECHA DELEGADO
-    formatFechaVE(ts) {
-      if (!ts) return '-';
-      const date = new Date(parseInt(ts) * 1000);
-      if (isNaN(date.getTime())) return '-';
-      return date.toLocaleDateString('es-VE', { 
-        timeZone: 'America/Caracas', 
-        day: '2-digit', month: '2-digit', year: 'numeric' 
-      });
-    },
-
-    // 4. CICLO DE VIDA Y CONSULTAS
+    // 3. CICLO DE VIDA Y ACCIONES DELEGADAS
     init() {
       this.$nextTick(() => this.cargarComprobantes());
     },
@@ -92,11 +81,9 @@ export function comprobantesState() {
         orden: this.filtroOrden
       };
 
-      // Invocación a lectura HTTP
       const raw = await obtenerComprobantes(params);
       const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-      // Delegación completa del filtrado al servicio atómico
       const resultadoFinal = filtrarComprobantesAtómico(mapeados, this.directorio, {
         filtroSocio: this.filtroSocio,
         filtroFechaInicio: this.filtroFechaInicio,
@@ -110,7 +97,7 @@ export function comprobantesState() {
       this.cargando = false;
     },
 
-    // 5. FORMATEADORES IMPORTADOS DIRECTOS
+    // 4. FORMATEADORES IMPORTADOS
     formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia
   };
 
