@@ -21,11 +21,11 @@
   <!-- METADATOS, BADGES Y BOTONERA (40% restante) -->
   <div class="flex-1 min-w-0 flex flex-col justify-between gap-1 py-0.5">
     
-    <!-- 1. 📅 INSIGNIA DE FECHA / HORA (UBICADA JUSTO ARRIBA DEL HASH) -->
-    <div class="w-full text-center py-0.5 rounded bg-cyan-950/90 text-cyan-300 font-mono text-[8px] sm:text-[9px] font-bold border border-cyan-500/50 shadow truncate px-0.5"
-         title="Fecha del comprobante">
-      📅 <span x-text="item.fecha_comprobante || item.fecha || (item.timestamp_comprobante || item.timestamp ? formatFechaVE(item.timestamp_comprobante || item.timestamp) : 'S/F')"></span>
-    </div>
+  <!-- 1. 📅 INSIGNIA DE FECHA / HORA (UBICADA JUSTO ARRIBA DEL HASH) -->
+<div class="w-full text-center py-0.5 rounded bg-cyan-950/90 text-cyan-300 font-mono text-[8px] sm:text-[9px] font-bold border border-cyan-500/50 shadow truncate px-0.5"
+     title="Fecha del comprobante">
+  📅 <span x-text="item.fecha_hora_input ? item.fecha_hora_input.replace('T', ' ') : (item.fecha_hora_comprobante ? item.fecha_hora_comprobante.substring(0,10) : 'S/F')"></span>
+</div>
 
     <!-- 2. Hash Corto -->
     <span class="w-full text-center py-0.5 rounded bg-slate-800/90 text-slate-300 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700 truncate px-0.5 shadow" 
