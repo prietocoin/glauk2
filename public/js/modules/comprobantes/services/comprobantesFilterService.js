@@ -1,49 +1,61 @@
 /**
  * @file comprobantesFilterService.js
  * @path public/js/modules/comprobantes/services/comprobantesFilterService.js
- * @description Servicio atómico de filtrado estricto y desinfección de parámetros para comprobantes.
+ * @description Servicio atómico exclusivo para la lógica de filtrado de comprobantes.
  */
 
-/**
- * Normaliza y desinfecta valores por defecto ('TODOS', 'TODOS LOS SOCIOS') para la API.
- */
 export function limpiarFiltro(val) {
   if (!val) return '';
   const str = String(val).trim().toUpperCase();
   return (str === 'TODOS' || str === 'TODOS LOS SOCIOS') ? '' : val;
 }
 
-/**
- * Filtra comprobantes de forma estricta comparando únicamente Socio 1 y Socio 2,
- * cruzando alias y herencias desde el directorio.
- */
-export function filtrarComprobantesPorSocio(items = [], directorio = [], filtroSocio = '') {
-  if (!Array.isArray(items) || items.length === 0) return [];
+export function aplicarFiltrosComprobantes(rawItems = [], directorio = [], filtros = {}) {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) return [];
 
-  const socioBuscado = (filtroSocio || '').trim().toUpperCase();
+  let resultado = [...rawItems];
+  const socioBuscado = (filtros.filtroSocio || '').trim().toUpperCase();
 
-  // Si no hay filtro o es global, devuelve la lista completa
-  if (!socioBuscado || socioBuscado === 'TODOS' || socioBuscado === 'TODOS LOS SOCIOS') {
-    return items;
-  }
+  // 1. FILTRADO ESTRICTO POR SOCIO (Exclusivo Socio 1 o Socio 2)
+  if (socioBuscado && socioBuscado !== 'TODOS' && socioBuscado !== 'TODOS LOS SOCIOS') {
+    const sociosValidos = new Set([socioBuscado]);
 
-  // Mapeo con directorio para jerarquías y herencias
-  const sociosValidos = new Set([socioBuscado]);
-  if (Array.isArray(directorio) && directorio.length > 0) {
-    directorio.forEach(d => {
-      const padre = String(d.padre || d.herencia || '').toUpperCase();
-      const nombre = String(d.nombre || '').toUpperCase();
-      if (padre === socioBuscado || nombre === socioBuscado) {
-        if (d.nombre) sociosValidos.add(String(d.nombre).toUpperCase());
-      }
+    // Cruzar con directorio si existen herencias
+    if (Array.isArray(directorio) && directorio.length > 0) {
+      directorio.forEach(d => {
+        const padre = String(d.padre || d.herencia || '').toUpperCase();
+        const nombre = String(d.nombre || '').toUpperCase();
+        if (padre === socioBuscado || nombre === socioBuscado) {
+          if (d.nombre) sociosValidos.add(String(d.nombre).toUpperCase());
+        }
+      });
+    }
+
+    resultado = resultado.filter(item => {
+      const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
+      const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
+      return sociosValidos.has(s1) || sociosValidos.has(s2);
     });
   }
 
-  // Filtro estricto exclusivo en Socio 1 y Socio 2 (Descarta Titular Bancario)
-  return items.filter(item => {
-    const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
-    const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
+  // 2. FILTRADO RANGO DE HASHES
+  if (filtros.filtroDesdeHash || filtros.filtroHastaHash) {
+    let idxDesde = 0;
+    let idxHasta = resultado.length - 1;
 
-    return sociosValidos.has(s1) || sociosValidos.has(s2);
-  });
+    if (filtros.filtroDesdeHash) {
+      const found = resultado.findIndex(c => c.hash_largo === filtros.filtroDesdeHash);
+      if (found !== -1) idxDesde = found;
+    }
+    if (filtros.filtroHastaHash) {
+      const found = resultado.findIndex(c => c.hash_largo === filtros.filtroHastaHash);
+      if (found !== -1) idxHasta = found;
+    }
+
+    const start = Math.min(idxDesde, idxHasta);
+    const end = Math.max(idxDesde, idxHasta);
+    resultado = resultado.slice(start, end + 1);
+  }
+
+  return resultado;
 }
