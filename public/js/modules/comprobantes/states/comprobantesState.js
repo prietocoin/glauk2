@@ -2,7 +2,7 @@
  * =================================================================
  * @file comprobantesState.js
  * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Estado reactivo magro Alpine.js (Orquestador ligero).
+ * @description Estado reactivo puro Alpine.js (Sin getters derivados).
  * =================================================================
  */
 
@@ -24,7 +24,7 @@ import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/co
 
 export function comprobantesState() {
   const state = {
-    // 1. ESTADO REACTIVO PURO (Sin funciones lógicas pesadas)
+    // 1. ESTADO REACTIVO PURO
     items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
     loteActivo: 'T052',
 
@@ -38,11 +38,10 @@ export function comprobantesState() {
     filtroHash: '', 
     saldoAnterior: 0,
 
-    // 2. GETTERS MAGROS (Delegación directa a Servicios)
-    get sujetoAuditado() {
-      return obtenerSujetoAuditado(this.filtroSocio);
-    },
+    // 2. HELPER EXPORTE PARA LA VISTA
+    obtenerSujetoAuditado,
 
+    // 3. CÁLCULOS RESTANTES DELEGADOS
     get movimientoFiltradoTotal() {
       return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
     },
@@ -57,7 +56,7 @@ export function comprobantesState() {
       });
     },
 
-    // 3. CICLO DE VIDA Y ACCIONES DELEGADAS
+    // 4. CICLO DE VIDA
     init() {
       this.$nextTick(() => this.cargarComprobantes());
     },
@@ -97,7 +96,7 @@ export function comprobantesState() {
       this.cargando = false;
     },
 
-    // 4. FORMATEADORES IMPORTADOS
+    // 5. FORMATEADORES
     formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia
   };
 
