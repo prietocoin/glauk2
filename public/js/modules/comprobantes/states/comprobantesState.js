@@ -98,13 +98,13 @@ export function comprobantesState() {
       const raw = await obtenerComprobantes(params);
       const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-      // Delegación completa del filtrado al servicio atómico
+      // Delegación completa del filtrado al servicio atómico (SINTAXIS CORREGIDA)
       const resultadoFinal = filtrarComprobantesAtómico(mapeados, this.directorio, {
         filtroSocio: this.filtroSocio,
         filtroFechaInicio: this.filtroFechaInicio,
         filtroFechaFin: this.filtroFechaFin,
-        filtroHash: this.filtroHash
-        filtroOrden: this.filtroOrden // 👈 AQUÍ ESTABA LA OMISIÓN
+        filtroHash: this.filtroHash,
+        filtroOrden: this.filtroOrden
       });
 
       this.items = resultadoFinal;
