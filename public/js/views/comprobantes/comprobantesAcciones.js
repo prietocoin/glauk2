@@ -1,32 +1,59 @@
-// =================================================================
-// ARCHIVO: comprobantesAcciones.js
-// RESPONSABILIDAD: Modales de auditoría, edición, borrado y WhatsApp
-// =================================================================
+/**
+ * =================================================================
+ * @file comprobantesAcciones.js
+ * @description Modales de auditoría, edición, borrado y WhatsApp (ESModule).
+ * =================================================================
+ */
 
 export const comprobantesAcciones = {
+  // 1. ABRIR MODAL CON PARSEO ROBUSTO DE FECHA
   abrirModalEdicion(item) {
-    let dateInput = '';
-    const ts = item.timestamp || item.timestamp_comprobante;
-    if (ts) {
-      const d = new Date(ts * 1000);
-      const tzOffset = d.getTimezoneOffset() * 60000;
-      dateInput = (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 16);
+    if (!item) return;
+
+    let dateInput = item.fecha_hora_input || '';
+    
+    // Si no viene en fecha_hora_input, parseamos desde el timestamp o string ISO
+    if (!dateInput) {
+      const ts = item.timestamp || item.timestamp_comprobante;
+      if (ts) {
+        const d = typeof ts === 'number' ? new Date(ts * 1000) : new Date(ts);
+        if (!isNaN(d.getTime())) {
+          const tzOffset = d.getTimezoneOffset() * 60000;
+          dateInput = (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 16);
+        }
+      }
     }
 
     const loteSeleccionado = item.id_tasa || item.lote_tasa || item.lote_tasa_asignado || 'T052';
 
+    // Se asigna la copia al estado
     this.itemEdicion = {
       ...item,
       id_tasa: loteSeleccionado,
       lote_tasa: loteSeleccionado,
       lote_tasa_asignado: loteSeleccionado,
-      tipo_manual: item.tipo_op || item.tipo_op_1 || 'D',
+      tipo_manual: item.tipo_manual || item.tipo_op || item.tipo_op_1 || 'D',
       fecha_hora_input: dateInput
     };
+
+    // Sincronización de ambas banderas de visibilidad para compatibilidad
+    this.modalAbierto = true;
     this.modalEdicionAbierto = true;
   },
 
-  async guardarEdicionComprobante() {
+  // Alias para botones viejos
+  abrirModal(item) {
+    this.abrirModalEdicion(item);
+  },
+
+  cerrarModalEdicion() {
+    this.modalAbierto = false;
+    this.modalEdicionAbierto = false;
+    this.itemEdicion = null;
+  },
+
+  // 2. GUARDAR CAMBIOS (Mapeado a 'guardarCambios' y 'guardarEdicionComprobante')
+  async guardarCambios() {
     if (!this.itemEdicion || !this.itemEdicion.hash_largo) return;
     try {
       if (this.itemEdicion.fecha_hora_input) {
@@ -40,25 +67,40 @@ export const comprobantesAcciones = {
         lote_tasa: this.itemEdicion.id_tasa || this.itemEdicion.lote_tasa_asignado || 'T052'
       };
 
-      await window.AteneaAPI.actualizarComprobante(payload.hash_largo, payload);
-      this.modalEdicionAbierto = false;
-      await this.cargarComprobantes();
+      if (window.AteneaAPI && typeof window.AteneaAPI.actualizarComprobante === 'function') {
+        await window.AteneaAPI.actualizarComprobante(payload.hash_largo, payload);
+      }
+      
+      this.cerrarModalEdicion();
+      if (typeof this.cargarComprobantes === 'function') {
+        await this.cargarComprobantes();
+      }
     } catch (err) {
       alert('Error al guardar comprobante: ' + err.message);
     }
   },
 
+  async guardarEdicionComprobante() {
+    await this.guardarCambios();
+  },
+
+  // 3. ELIMINAR COMPROBANTE
   async eliminarComprobante(hashLargo) {
     if (!confirm('¿Deseas eliminar este comprobante de la base de datos?')) return;
     try {
-      await window.AteneaAPI.eliminarComprobante(hashLargo);
-      this.modalEdicionAbierto = false;
-      await this.cargarComprobantes();
+      if (window.AteneaAPI && typeof window.AteneaAPI.eliminarComprobante === 'function') {
+        await window.AteneaAPI.eliminarComprobante(hashLargo);
+      }
+      this.cerrarModalEdicion();
+      if (typeof this.cargarComprobantes === 'function') {
+        await this.cargarComprobantes();
+      }
     } catch (err) {
       alert('Error al eliminar comprobante: ' + err.message);
     }
   },
 
+  // 4. ENVÍO WHATSAPP
   async enviarReporteWhatsApp() {
     if (!this.jidSocioActual) {
       alert('El socio seleccionado no posee un Remote JID o ID Grupo de WhatsApp registrado.');
