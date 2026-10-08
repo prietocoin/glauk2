@@ -1,7 +1,7 @@
 /**
  * @file comprobantesState.js
  * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Átomo de estado reactivo Alpine.js sincronizado con el HTML del motor Atenea.
+ * @description Átomo de estado reactivo Alpine.js sincronizado con los servicios atómicos.
  */
 
 import { 
@@ -17,17 +17,29 @@ import {
 import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
+import { filtrarComprobantesPorSocio, limpiarFiltro } from '../services/comprobantesFilterService.js';
 
 export function comprobantesState() {
   const state = {
-    // 1. PROPIEDADES REACTIVAS CON LOS NOMBRES EXACTOS DE TU HTML
-    items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
+    // 1. PROPIEDADES REACTIVAS BASE
+    rawItems: [], 
+    comprobantes: [], 
+    directorio: [], 
+    cargando: true, 
+    modalAbierto: false, 
+    itemEdicion: null,
     loteActivo: 'T052',
-    filtroRol: '', filtroSocio: '', filtroFechaInicio: '', filtroFechaFin: '',
-    filtroDesdeHash: '', filtroHastaHash: '', ordenarPor: 'fecha_desc', filtroHashBusqueda: '',
+    filtroRol: '', 
+    filtroSocio: '', 
+    filtroFechaInicio: '', 
+    filtroFechaFin: '',
+    filtroDesdeHash: '', 
+    filtroHastaHash: '', 
+    ordenarPor: 'fecha_desc', 
+    filtroHashBusqueda: '',
     saldoAnterior: 0,
 
-    // 2. GETTERS COMPUTADOS
+    // 2. GETTERS COMPUTADOS (DELEGACIÓN A SERVICIOS)
     get sujetoAuditado() { 
       return this.filtroSocio ? this.filtroSocio.toUpperCase() : 'TODOS LOS SOCIOS'; 
     },
@@ -36,23 +48,14 @@ export function comprobantesState() {
       return (parseFloat(this.saldoAnterior) || 0) + this.movimientoFiltradoTotal; 
     },
 
-    // GETTER DE FILTRADO ESTRICTO (Filtra solo por Socio 1 y Socio 2)
+    // GETTER PRINCIPAL DE COMPROBANTES FILTRADOS
     get comprobantesProcesadosYOrdenados() {
-      const lista = Array.isArray(this.items) ? this.items : [];
-      if (!lista.length) return [];
+      return filtrarComprobantesPorSocio(this.rawItems, this.directorio, this.filtroSocio);
+    },
 
-      const socioTarget = (this.filtroSocio || '').trim().toUpperCase();
-
-      if (!socioTarget || socioTarget === 'TODOS' || socioTarget === 'TODOS LOS SOCIOS') {
-        return lista;
-      }
-
-      // Descarta 100% las coincidencias en Titulares Bancarios
-      return lista.filter(item => {
-        const s1 = (item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
-        const s2 = (item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
-        return s1 === socioTarget || s2 === socioTarget;
-      });
+    // ALIAS REACTIVO PARA MANTENER COMPATIBILIDAD CON "x-for='item in items'" EN LA VISTA
+    get items() {
+      return this.comprobantesProcesadosYOrdenados;
     },
 
     get movimientoFiltradoTotal() { 
@@ -61,11 +64,12 @@ export function comprobantesState() {
 
     get sociosPendientesConsolidado() {
       return calcularSociosPendientesConsolidado(this.directorio, this.comprobantesProcesadosYOrdenados, {
-        fechaInicio: this.filtroFechaInicio, fechaFin: this.filtroFechaFin
+        fechaInicio: this.filtroFechaInicio, 
+        fechaFin: this.filtroFechaFin
       });
     },
 
-    // 3. ACCIONES Y COMUNICACIÓN CON API
+    // 3. COMUNICACIÓN CON API
     init() {
       this.$nextTick(() => {
         this.cargarComprobantes();
@@ -84,24 +88,26 @@ export function comprobantesState() {
     },
 
     async cargarComprobantes(silencioso = false) {
-      this.cargando = true;
+      if (!silencioso) this.cargando = true;
 
-      const params = {};
-      if (this.filtroRol) params.rol = this.filtroRol;
-      if (this.filtroFechaInicio) params.fechaInicio = this.filtroFechaInicio;
-      if (this.filtroFechaFin) params.fechaFin = this.filtroFechaFin;
-      if (this.filtroHashBusqueda) params.hash = this.filtroHashBusqueda;
-      if (this.ordenarPor) params.orden = this.ordenarPor;
+      const params = {
+        rol: limpiarFiltro(this.filtroRol),
+        fechaInicio: this.filtroFechaInicio,
+        fechaFin: this.filtroFechaFin,
+        hash: this.filtroHashBusqueda,
+        orden: this.ordenarPor
+      };
 
       const raw = (await obtenerComprobantes(params)) || [];
       const lista = Array.isArray(raw) ? raw : (raw.objects || raw.comprobantes || []);
 
-      this.items = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
-      this.comprobantes = this.items;
+      // Mapea y almacena en la lista base sin filtrar
+      this.rawItems = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
+      this.comprobantes = this.rawItems;
       this.cargando = false;
     },
 
-    // 4. FORMATEADORES IMPORTADOS DIRECTAMENTE
+    // 4. MÉTODOS DE FORMATO E INTERFAZ
     formatMonto,
     formatTasa,
     obtenerME1,
