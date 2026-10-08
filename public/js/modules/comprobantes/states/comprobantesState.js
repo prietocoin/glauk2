@@ -20,11 +20,11 @@ import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
 import { filtrarComprobantesAtómico } from '../services/comprobantesFilterService.js';
-import { obtenerSaldoAnteriorSocio } from '../services/comprobantesSaldosService.js';
+import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/comprobantesSaldosService.js';
 
 export function comprobantesState() {
   const state = {
-    // 1. ESTADO REACTIVO PURE (Nombres alineados con la vista EJS)
+    // 1. ESTADO REACTIVO PURE
     items: [], comprobantes: [], directorio: [], cargando: true, modalAbierto: false, itemEdicion: null,
     loteActivo: 'T052',
 
@@ -34,15 +34,13 @@ export function comprobantesState() {
     filtroFechaFin: '',
     filtroDesdeHash: '', 
     filtroHastaHash: '', 
-    filtroOrden: 'fecha_desc',  // 👈 Sincronizado con x-model="filtroOrden"
-    filtroHash: '',             // 👈 Sincronizado con x-model="filtroHash"
+    filtroOrden: 'fecha_desc',
+    filtroHash: '', 
     saldoAnterior: 0,
 
-    // 2. GETTERS
+    // 2. GETTERS DELEGADOS A SERVICIOS ATÓMICOS
     get sujetoAuditado() {
-      return (this.filtroSocio && this.filtroSocio.toUpperCase() !== 'TODOS' && this.filtroSocio.toUpperCase() !== 'TODOS LOS SOCIOS') 
-        ? this.filtroSocio.toUpperCase() 
-        : 'TODOS LOS SOCIOS';
+      return obtenerSujetoAuditado(this.filtroSocio);
     },
 
     get movimientoFiltradoTotal() {
@@ -98,7 +96,7 @@ export function comprobantesState() {
       const raw = await obtenerComprobantes(params);
       const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-      // Delegación completa del filtrado al servicio atómico (SINTAXIS CORREGIDA)
+      // Delegación completa del filtrado al servicio atómico
       const resultadoFinal = filtrarComprobantesAtómico(mapeados, this.directorio, {
         filtroSocio: this.filtroSocio,
         filtroFechaInicio: this.filtroFechaInicio,
