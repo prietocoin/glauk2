@@ -1,7 +1,6 @@
 /**
  * @file comprobantesMapperService.js
- * @path public/js/modules/comprobantes/services/comprobantesMapperService.js
- * @description Mapeador ajustado estrictamente a los x-model de modalEditarComprobante.ejs
+ * @description Mapeador atómico para prevenir el fallback a GENERAL en el modal.
  */
 
 function truncarTasaComercial(val) {
@@ -24,11 +23,10 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
 
   const fallbackMonto = Math.abs(parseFloat(item.monto || item.monto_local || 0)) || 0;
 
-  // Resoluciones de socios para prevenir que caigan en "GENERAL"
-  const s1 = item.nombre_socio_1 || item.socio_1 || 'NELSY';
-  const s2 = item.nombre_socio_2 || item.socio_2 || 'MERLI';
+  // EXTRAER SOCIOS DE TODAS LAS POSIBLES VARIANTES DEL JSON
+  const socio1Real = item.nombre_socio_1 || item.socio_1 || item.socio1 || 'NELSY';
+  const socio2Real = item.nombre_socio_2 || item.socio_2 || item.socio2 || 'MERLI';
 
-  // Lógica de cálculo directo monto_comprobante / tasa
   const t1 = truncarTasaComercial(item.tasa_1);
   const t2 = truncarTasaComercial(item.tasa_2);
 
@@ -42,13 +40,12 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
     referencia: (item.referencia && item.referencia !== '-') ? item.referencia : 'N/A',
     titular: (item.titular && item.titular !== '-') ? item.titular : 'TITULAR NO DEFINIDO',
     
-    // SOCIOS PARA LOS <select> DEL MODAL
-    nombre_socio_1: s1,
-    socio_1: s1,
-    nombre_socio_2: s2,
-    socio_2: s2,
+    // ASIGNACIÓN SIMULTÁNEA DE NOMBRES PARA FORZAR AL SELECT DE ALPINE
+    nombre_socio_1: socio1Real,
+    socio_1: socio1Real,
+    nombre_socio_2: socio2Real,
+    socio_2: socio2Real,
 
-    // REGLAS Y MONEDAS
     tipo_manual: (item.tipo_manual || item.naturaleza || item.tipo_op1 || 'P').toUpperCase(),
     moneda: (item.moneda || item.moneda_local || 'ARS').toUpperCase(),
     monto: fallbackMonto,
@@ -58,7 +55,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
     tasa_1: t1,
     tasa_2: t2,
 
-    // PROPIEDADES CLAVE PARA LOS INPUTS X-MODEL DE modalEditarComprobante.ejs
+    // INPUTS DE MONTO
     m1_socio: calcM1,
     m2_socio: calcM2,
     monto_1: calcM1,
