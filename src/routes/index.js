@@ -10,7 +10,7 @@ router.use('/directorio', require('../modules/directorio/routes/directorioRoutes
 router.use('/reportes', require('../modules/reportes/routes/reportesRoutes'));
 router.use('/comprobantes', require('../modules/comprobantes/routes/comprobantesRoutes'));
 
-// 🟢 NUEVA API V2 DE COMPROBANTES
+// 🟢 MONTA LA BASE EN /v2/comprobantes
 router.use('/v2/comprobantes', require('../modules/comprobantes/routes/apiRoutes'));
 
 router.use('/admin', require('../modules/admin/routes/adminRoutes'));
