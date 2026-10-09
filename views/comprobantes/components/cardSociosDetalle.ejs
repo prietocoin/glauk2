@@ -7,9 +7,17 @@
 <div class="bg-[#030611] rounded-xl border border-blue-900/50 p-2 space-y-1">
   
   <!-- SOCIO 1 (Impacto Primario - Color Cian) -->
-  <div class="grid grid-cols-12 items-center text-xs gap-1">
+  <div class="grid grid-cols-12 items-center text-xs gap-1"
+       x-data="{ 
+         s1Nombre: item.socio_1 || item.nombre_socio_1 || item.socio || item.titular || 'GENERAL',
+         get s1Moneda() {
+           if (item.moneda_base_socio1) return item.moneda_base_socio1;
+           const sObj = (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s1Nombre).trim().toUpperCase());
+           return sObj?.moneda_base || sObj?.moneda_socio || sObj?.moneda || 'USDT';
+         }
+       }">
     <span class="col-span-4 font-black text-cyan-300 uppercase truncate text-[11px]" 
-          x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(item.socio_1 || item.socio || item.nombre_socio_1 || '').trim().toUpperCase())?.herencia ? '↳ ' : '') + (item.socio_1 || item.socio || item.nombre_socio_1 || item.titular || 'GENERAL')"></span>
+          x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s1Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s1Nombre"></span>
     
     <!-- Tasa 1 procesada -->
     <div class="col-span-3 text-center">
@@ -17,22 +25,24 @@
             x-text="'T1: ' + formatTasa(obtenerTasaSocioCalculada(item, 1))"></span>
     </div>
 
-    <!-- Volumen y Divisa Socio 1 (Resolución exacta de perfiles_glaukov) -->
+    <!-- Volumen y Divisa Socio 1 -->
     <span class="col-span-5 font-mono font-bold text-right truncate text-[11px] text-emerald-400" 
-          x-text="formatMonto(Math.abs(parseFloat(obtenerME1(item)))) + ' ' + (
-            item.moneda_base_socio1 || 
-            item.moneda_socio1 || 
-            (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(item.socio_1 || item.nombre_socio_1 || '').trim().toUpperCase())?.moneda_base || 
-            (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(item.socio_1 || item.nombre_socio_1 || '').trim().toUpperCase())?.moneda_socio || 
-            'USDT'
-          )"></span>
+          x-text="formatMonto(Math.abs(parseFloat(obtenerME1(item)))) + ' ' + s1Moneda"></span>
   </div>
   
   <!-- SOCIO 2 (Contraparte - Color Rosa: Render condicional) -->
   <template x-if="(item.socio_2 || item.nombre_socio_2) && (item.socio_2 || item.nombre_socio_2) !== 'GENERAL' && (item.socio_2 || item.nombre_socio_2) !== 'NO DEFINIDO'">
-    <div class="grid grid-cols-12 items-center text-xs gap-1 border-t border-blue-900/40 pt-1">
+    <div class="grid grid-cols-12 items-center text-xs gap-1 border-t border-blue-900/40 pt-1"
+         x-data="{ 
+           s2Nombre: item.socio_2 || item.nombre_socio_2,
+           get s2Moneda() {
+             if (item.moneda_base_socio2) return item.moneda_base_socio2;
+             const sObj = (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s2Nombre).trim().toUpperCase());
+             return sObj?.moneda_base || sObj?.moneda_socio || sObj?.moneda || 'USDT';
+           }
+         }">
       <span class="col-span-4 font-black text-pink-300 uppercase truncate text-[11px]" 
-            x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(item.socio_2 || item.nombre_socio_2 || '').trim().toUpperCase())?.herencia ? '↳ ' : '') + (item.socio_2 || item.nombre_socio_2)"></span>
+            x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s2Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s2Nombre"></span>
       
       <!-- Tasa 2 procesada -->
       <div class="col-span-3 text-center">
@@ -40,15 +50,9 @@
               x-text="'T2: ' + formatTasa(obtenerTasaSocioCalculada(item, 2))"></span>
       </div>
 
-      <!-- Volumen y Divisa Socio 2 (Resolución exacta de perfiles_glaukov) -->
+      <!-- Volumen y Divisa Socio 2 -->
       <span class="col-span-5 font-mono font-bold text-right truncate text-[11px] text-emerald-400" 
-            x-text="formatMonto(Math.abs(parseFloat(obtenerME2(item)))) + ' ' + (
-              item.moneda_base_socio2 || 
-              item.moneda_socio2 || 
-              (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(item.socio_2 || item.nombre_socio_2 || '').trim().toUpperCase())?.moneda_base || 
-              (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(item.socio_2 || item.nombre_socio_2 || '').trim().toUpperCase())?.moneda_socio || 
-              'USDT'
-            )"></span>
+            x-text="formatMonto(Math.abs(parseFloat(obtenerME2(item)))) + ' ' + s2Moneda"></span>
     </div>
   </template>
 
