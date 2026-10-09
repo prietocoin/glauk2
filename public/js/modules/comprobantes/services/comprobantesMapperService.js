@@ -1,42 +1,71 @@
 /**
  * @file comprobantesMapperService.js
- * @description Mapeador directo sin pérdida de valores de monto_1 y monto_2.
+ * @path public/js/modules/comprobantes/services/comprobantesMapperService.js
+ * @description Mapeador ajustado estrictamente a los x-model de modalEditarComprobante.ejs
  */
+
+function truncarTasaComercial(val) {
+  const num = parseFloat(val);
+  return isNaN(num) || num <= 0 ? 1.0 : Math.floor(num * 10000) / 10000;
+}
 
 export function prepararEdicionComprobante(item, loteActivo = 'T063') {
   if (!item) return {};
 
-  const montoLocal = Number(item.monto || item.monto_local || 0);
-  const tasa1 = Number(item.tasa_1) > 0 ? Number(item.tasa_1) : 1;
-  const tasa2 = Number(item.tasa_2) > 0 ? Number(item.tasa_2) : tasa1;
+  let dateInput = '';
+  if (item.fecha_hora_comprobante || item.fecha_hora_input) {
+    const rawDate = item.fecha_hora_input || item.fecha_hora_comprobante;
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      const tzOffset = d.getTimezoneOffset() * 60000;
+      dateInput = (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 16);
+    }
+  }
 
-  // Si vienen directamente del objeto item, se respetan sin forzar fallback a 0
-  const m1 = item.monto_1 !== undefined && item.monto_1 !== null 
-    ? item.monto_1 
-    : (montoLocal / tasa1).toFixed(2);
+  const fallbackMonto = Math.abs(parseFloat(item.monto || item.monto_local || 0)) || 0;
 
-  const m2 = item.monto_2 !== undefined && item.monto_2 !== null 
-    ? item.monto_2 
-    : (montoLocal / tasa2).toFixed(2);
+  // Resoluciones de socios para prevenir que caigan en "GENERAL"
+  const s1 = item.nombre_socio_1 || item.socio_1 || 'NELSY';
+  const s2 = item.nombre_socio_2 || item.socio_2 || 'MERLI';
+
+  // Lógica de cálculo directo monto_comprobante / tasa
+  const t1 = truncarTasaComercial(item.tasa_1);
+  const t2 = truncarTasaComercial(item.tasa_2);
+
+  const calcM1 = item.m1_socio ?? item.monto_1 ?? item.me1 ?? (t1 > 0 ? Number((fallbackMonto / t1).toFixed(2)) : fallbackMonto);
+  const calcM2 = item.m2_socio ?? item.monto_2 ?? item.me2 ?? (t2 > 0 ? Number((fallbackMonto / t2).toFixed(2)) : fallbackMonto);
 
   return {
     ...item,
-    socio_1: item.socio_1 || item.nombre_socio_1 || 'GENERAL',
-    socio_2: item.socio_2 || item.nombre_socio_2 || 'GENERAL',
-    nombre_socio_1: item.nombre_socio_1 || item.socio_1 || 'GENERAL',
-    nombre_socio_2: item.nombre_socio_2 || item.socio_2 || 'GENERAL',
+    hash_largo: item.hash_largo || '',
+    banco: (item.banco && item.banco !== '-') ? item.banco : 'BANCO',
+    referencia: (item.referencia && item.referencia !== '-') ? item.referencia : 'N/A',
+    titular: (item.titular && item.titular !== '-') ? item.titular : 'TITULAR NO DEFINIDO',
     
-    moneda: item.moneda || 'ARS',
-    monto: montoLocal,
-    monto_local: montoLocal,
+    // SOCIOS PARA LOS <select> DEL MODAL
+    nombre_socio_1: s1,
+    socio_1: s1,
+    nombre_socio_2: s2,
+    socio_2: s2,
 
-    tasa_1: tasa1,
-    tasa_2: tasa2,
+    // REGLAS Y MONEDAS
+    tipo_manual: (item.tipo_manual || item.naturaleza || item.tipo_op1 || 'P').toUpperCase(),
+    moneda: (item.moneda || item.moneda_local || 'ARS').toUpperCase(),
+    monto: fallbackMonto,
+    monto_local: fallbackMonto,
+    lote_tasa_asignado: item.lote_tasa_asignado || item.lote_tasa || loteActivo,
 
-    // ASIGNACIÓN DIRECTA A LAS PROPIEDADES QUE LEE EL HTML
-    monto_1: m1,
-    monto_2: m2,
-    me1: item.me1 ?? m1,
-    me2: item.me2 ?? m2
+    tasa_1: t1,
+    tasa_2: t2,
+
+    // PROPIEDADES CLAVE PARA LOS INPUTS X-MODEL DE modalEditarComprobante.ejs
+    m1_socio: calcM1,
+    m2_socio: calcM2,
+    monto_1: calcM1,
+    monto_2: calcM2,
+    me1: item.me1 ?? calcM1,
+    me2: item.me2 ?? calcM2,
+
+    fecha_hora_input: dateInput
   };
 }
