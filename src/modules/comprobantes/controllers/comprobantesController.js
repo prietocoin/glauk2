@@ -1,53 +1,45 @@
 /**
  * @file comprobantesController.js
- * @description Controlador HTTP atómico con resolución de Naturaleza (Abono / Pago / Depósito).
+ * @description Controlador HTTP atómico para el módulo de comprobantes.
  */
 const { obtenerComprobantesCompletos } = require('../queries/comprobantesQuery');
 const { eliminarComprobante } = require('../services/comprobantesBorradoService');
 const { releerIA } = require('../services/comprobantesIaService');
 const { liquidarComprobante, actualizarComprobante } = require('../services/comprobantesSnapshotService');
-const { cargarContextoSnapshot } = require('../services/comprobantesPerfilService');
 
 async function getComprobantes(req, res) {
   try {
     const { socio } = req.query;
     const rows = await obtenerComprobantesCompletos(socio);
 
-    const comprobantesProcesados = await Promise.all(
-      rows.map(async (item) => {
-        let naturalezaCalculada = item.tipo_op1;
+    // Mapeo síncrono ultra-seguro (sin llamadas asíncronas dentro del loop)
+    const comprobantesProcesados = rows.map(item => {
+      let naturalezaCalculada = item.tipo_op1;
 
-        // Si no está liquidado o viene como 'D' por omisión
-        if (!item.esta_liquidado || !naturalezaCalculada || naturalezaCalculada === 'D') {
-          const monComp = String(item.moneda || '').toUpperCase().trim();
-          const monSocio = String(item.moneda_base_socio1 || 'USDT').toUpperCase().trim();
+      if (!item.esta_liquidado || !naturalezaCalculada || naturalezaCalculada === 'D') {
+        const monComp = String(item.moneda || '').toUpperCase().trim();
+        const monSocio = String(item.moneda_base_socio1 || 'USDT').toUpperCase().trim();
 
-          // 1. REGLA IMPERATIVA: Misma moneda -> Abono ('A')
-          if (monComp && monSocio && monComp === monSocio) {
-            naturalezaCalculada = 'A';
-          } else {
-            // 2. REGLA PERFIL: Distinta moneda -> Consultar la regla del perfil por JID (ej: ARS -> 'P')
-            const ctx = await cargarContextoSnapshot(
-              item.grupo_raw_1,
-              item.usuario_raw_1,
-              item.grupo_raw_2,
-              item.usuario_raw_2,
-              item.moneda,
-              item.timestamp_msg
-            );
-            naturalezaCalculada = ctx.naturaleza || 'D';
-          }
+        // 1. REGLA IMPERATIVA: Misma moneda -> Abono ('A')
+        if (monComp && monSocio && monComp === monSocio) {
+          naturalezaCalculada = 'A';
+        } 
+        // 2. REGLA POR DEFECTO PARA DISTINTA MONEDA: Pago ('P')
+        else if (monComp !== monSocio && monComp !== '') {
+          naturalezaCalculada = 'P';
+        } else {
+          naturalezaCalculada = 'D';
         }
+      }
 
-        return {
-          ...item,
-          tipo_op1: naturalezaCalculada,
-          tipo_manual: naturalezaCalculada,
-          naturaleza: naturalezaCalculada,
-          tipo_op: naturalezaCalculada
-        };
-      })
-    );
+      return {
+        ...item,
+        tipo_op1: naturalezaCalculada,
+        tipo_manual: naturalezaCalculada,
+        naturaleza: naturalezaCalculada,
+        tipo_op: naturalezaCalculada
+      };
+    });
 
     return res.status(200).json(comprobantesProcesados);
   } catch (err) {
