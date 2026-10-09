@@ -1,6 +1,6 @@
 /**
  * @file comprobantesQuery.js
- * @description Consulta SQL de lectura pura para comprobantes.
+ * @description Consulta SQL con resolución de Socios por JID y Naturaleza en vivo.
  */
 const db = require('#config/database');
 
@@ -10,8 +10,8 @@ async function obtenerComprobantesCompletos(socio = null) {
 
   if (socio && socio.trim() !== '' && socio !== 'undefined' && socio !== 'null') {
     whereClause += ` AND (
-      LOWER(COALESCE(l.socio_1, '')) LIKE LOWER($1) OR
-      LOWER(COALESCE(l.socio_2, '')) LIKE LOWER($1) OR
+      LOWER(COALESCE(l.socio_1, n_grupo1.nombre, n_user1.nombre, '')) LIKE LOWER($1) OR
+      LOWER(COALESCE(l.socio_2, n_grupo2.nombre, n_user2.nombre, '')) LIKE LOWER($1) OR
       LOWER(COALESCE(c.titular, '')) LIKE LOWER($1)
     )`;
     params.push(`%${socio.trim()}%`);
@@ -38,20 +38,55 @@ async function obtenerComprobantesCompletos(socio = null) {
       COALESCE(c.url_r2, i1.url_imagen, '') AS url_imagen,
       (l.hash_largo IS NOT NULL) AS esta_liquidado,
 
-      -- JIDs crudos para mapear en JS
+      -- JIDs crudos
       i1.grupo_raw AS grupo_raw_1,
       i1.usuario_raw AS usuario_raw_1,
       i2.grupo_raw AS grupo_raw_2,
       i2.usuario_raw AS usuario_raw_2,
       i1.timestamp_msg,
 
-      -- Datos de comprobantes_liq
-      l.socio_1, l.tipo_op1, l.monto_1, l.tasa_1, l.me1,
-      l.socio_2, l.tipo_op2, l.monto_2, l.tasa_2, l.me2, l.lote_tasa
+      -- Nombres de los socios (si no está liquidado, toma el del perfil por JID)
+      COALESCE(l.socio_1, n_grupo1.nombre, n_user1.nombre, 'GENERAL') AS nombre_socio_1,
+      COALESCE(l.socio_1, n_grupo1.nombre, n_user1.nombre, 'GENERAL') AS socio_1,
+      COALESCE(l.socio_2, n_grupo2.nombre, n_user2.nombre, NULL) AS nombre_socio_2,
+      COALESCE(l.socio_2, n_grupo2.nombre, n_user2.nombre, NULL) AS socio_2,
+
+      -- RESOLUCIÓN DE NATURALEZA ATÓMICA
+      COALESCE(
+        l.tipo_op1,
+        CASE 
+          -- Regla Imperativa: Si la moneda del comprobante == Moneda base del socio -> Abono ('A')
+          WHEN UPPER(TRIM(c.moneda)) = UPPER(TRIM(COALESCE(n_grupo1.moneda_base, n_user1.moneda_base, ''))) THEN 'A'
+          ELSE 'D'
+        END
+      ) AS tipo_op1,
+
+      COALESCE(
+        l.tipo_op1,
+        CASE 
+          WHEN UPPER(TRIM(c.moneda)) = UPPER(TRIM(COALESCE(n_grupo1.moneda_base, n_user1.moneda_base, ''))) THEN 'A'
+          ELSE 'D'
+        END
+      ) AS tipo_manual
+
     FROM comprobantes_raw c
     LEFT JOIN comprobantes_liq l ON LOWER(TRIM(l.hash_largo)) = LOWER(TRIM(c.hash_largo))
     LEFT JOIN impactos_ordenados i1 ON LOWER(TRIM(i1.hash_largo)) = LOWER(TRIM(c.hash_largo)) AND i1.num_impacto = 1
     LEFT JOIN impactos_ordenados i2 ON LOWER(TRIM(i2.hash_largo)) = LOWER(TRIM(c.hash_largo)) AND i2.num_impacto = 2
+
+    -- JOINs buscando tanto por jid_grupo/jid_usuario como por id_grupo
+    LEFT JOIN perfiles_glaukov n_grupo1 ON i1.grupo_raw IS NOT NULL AND (
+      LOWER(TRIM(COALESCE(n_grupo1.jid_grupo, n_grupo1.id_grupo, ''))) = LOWER(TRIM(i1.grupo_raw))
+    )
+    LEFT JOIN perfiles_glaukov n_user1 ON i1.usuario_raw IS NOT NULL AND (
+      LOWER(TRIM(COALESCE(n_user1.jid_usuario, n_user1.id_grupo, ''))) = LOWER(TRIM(i1.usuario_raw))
+    )
+    LEFT JOIN perfiles_glaukov n_grupo2 ON i2.grupo_raw IS NOT NULL AND (
+      LOWER(TRIM(COALESCE(n_grupo2.jid_grupo, n_grupo2.id_grupo, ''))) = LOWER(TRIM(i2.grupo_raw))
+    )
+    LEFT JOIN perfiles_glaukov n_user2 ON i2.usuario_raw IS NOT NULL AND (
+      LOWER(TRIM(COALESCE(n_user2.jid_usuario, n_user2.id_grupo, ''))) = LOWER(TRIM(i2.usuario_raw))
+    )
     ${whereClause}
     ORDER BY c.creado_en DESC
     LIMIT 50;
