@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getComprobantesApi } = require('../services/comprobantesApiService');
 
-// 🟢 Al estar montado en /v2/comprobantes desde el index.js, la ruta raíz '/' responde al GET completo
+// 🟢 DEBE SER '/' porque index.js ya le antepone '/v2/comprobantes'
 router.get('/', getComprobantesApi);
 
 module.exports = router;
