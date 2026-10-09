@@ -28,22 +28,27 @@ async function actualizarComprobante(hashLargo, datos = {}) {
     datos.titular ? datos.titular.toUpperCase().trim() : null,
     targetHash
   ]);
+// En actualizarComprobante:
+const { tasaLote, socio1Data, socio2Data, funddaData, naturaleza } = await cargarContextoSnapshot(
+  datos.grupo_raw_1,
+  datos.usuario_raw_1,
+  datos.grupo_raw_2,
+  datos.usuario_raw_2,
+  datos.moneda,
+  datos.timestamp_msg
+);
 
-  const idLote = datos.lote_tasa_asignado || datos.lote_tasa || datos.id_tasa || 'T052';
-  const socio1Nombre = datos.nombre_socio_1 || datos.socio_1 || datos.socio1 || 'GENERAL';
-  const socio2Nombre = datos.nombre_socio_2 || datos.socio_2 || datos.socio2 || 'GENERAL';
+const rawData = {
+  hash_largo: targetHash,
+  monto: valMonto || datos.monto || 0,
+  moneda: datos.moneda || datos.moneda_recibo || 'COP',
+  tipo_manual: naturaleza, // 👈 Inyecta la naturaleza devuelta
+  id_tasa: idLote
+};
 
-  const { tasaLote, socio1Data, socio2Data, funddaData } = await cargarContextoSnapshot(socio1Nombre, socio2Nombre, idLote);
+const snapshot = calcularSnapshotFinanciero(rawData, socio1Data, socio2Data, tasaLote, funddaData, naturaleza);
 
-  const rawData = {
-    hash_largo: targetHash,
-    monto: valMonto || datos.monto || 0,
-    moneda: datos.moneda || datos.moneda_recibo || 'COP',
-    tipo_manual: datos.tipo_manual || datos.tipo_op || datos.tipo_op1 || 'P',
-    id_tasa: idLote
-  };
-
-  const snapshot = calcularSnapshotFinanciero(rawData, socio1Data, socio2Data, tasaLote, funddaData);
+  
   await liquidarComprobante(snapshot);
 
   return { success: true };
