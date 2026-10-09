@@ -23,7 +23,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
 
   const fallbackMonto = Math.abs(parseFloat(item.monto || item.monto_local || 0)) || 0;
 
-  // 1. EXTRAER SOCIOS DE MANERA DINÁMICA RESPETANDO DB
+  // 1. EXTRAER SOCIOS RESPETANDO LA BASE DE DATOS
   const socio1Real = item.nombre_socio_1 || item.socio_1 || item.socio1 || 'GENERAL';
   const socio2Real = item.nombre_socio_2 || item.socio_2 || item.socio2 || 'GENERAL';
 
@@ -31,7 +31,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
   const t1 = truncarTasaComercial(item.tasa_1);
   const t2 = truncarTasaComercial(item.tasa_2);
 
-  // 3. CÁLCULO DE MONTOS: ESCALAR ABSOLUTO Y LIMPIO EN VALOR POSITIVO
+  // 3. CÁLCULO DE MONTOS: ESCALAR ABSOLUTO Y LIMPIO
   const rawM1 = item.m1_socio ?? item.monto_1 ?? item.me1 ?? (t1 > 0 ? (fallbackMonto / t1) : fallbackMonto);
   const rawM2 = item.m2_socio ?? item.monto_2 ?? item.me2 ?? (t2 > 0 ? (fallbackMonto / t2) : fallbackMonto);
 
@@ -51,11 +51,11 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
     nombre_socio_2: socio2Real,
     socio_2: socio2Real,
 
-    // DIVISAS BASE DE SOCIOS
-    moneda_base_socio1: item.moneda_base_socio1 || item.moneda_socio1 || item.moneda || 'ARS',
-    moneda_base_socio2: item.moneda_base_socio2 || item.moneda_socio2 || 'PEN',
+    // DIVISAS BASE DE SOCIOS SIN FALLBACKS FORZADOS
+    moneda_base_socio1: item.moneda_base_socio1 || item.moneda_socio1,
+    moneda_base_socio2: item.moneda_base_socio2 || item.moneda_socio2,
 
-    // MONEDA RECIBO Y MONTO LOCAL
+    // MONEDA Y MONTO DEL RECIBO
     tipo_manual: (item.tipo_manual || item.naturaleza || item.tipo_op1 || 'P').toUpperCase(),
     moneda: (item.moneda || item.moneda_local || 'ARS').toUpperCase(),
     monto: fallbackMonto,
