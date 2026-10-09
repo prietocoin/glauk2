@@ -2,7 +2,6 @@
  * @file comprobantesController.js
  * @description Controlador HTTP atómico para el módulo de comprobantes.
  */
-const db = require('#config/database');
 const { obtenerComprobantesCompletos } = require('../queries/comprobantesQuery');
 const { eliminarComprobante } = require('../services/comprobantesBorradoService');
 const { releerIA } = require('../services/comprobantesIaService');
@@ -12,17 +11,6 @@ async function getComprobantes(req, res) {
   try {
     const { socio } = req.query;
     const rows = await obtenerComprobantesCompletos(socio);
-
-    // Obtener lote por defecto en caso de no estar liquidado
-    let loteFallback = 'T064';
-    try {
-      const loteRes = await db.query(`SELECT id_tasa FROM tasas_glaukov ORDER BY id DESC LIMIT 1`);
-      if (loteRes.rows.length > 0 && loteRes.rows[0].id_tasa) {
-        loteFallback = loteRes.rows[0].id_tasa;
-      }
-    } catch (e) {
-      // Ignorar error de fallback si la tabla de tasas difiere en nombre
-    }
 
     const comprobantesProcesados = rows.map(item => {
       let naturalezaCalculada = item.tipo_op1;
@@ -40,7 +28,8 @@ async function getComprobantes(req, res) {
         }
       }
 
-      const loteFinal = item.lote_tasa || loteFallback;
+      // Lote por defecto seguro
+      const loteFinal = item.lote_tasa || 'T064';
 
       return {
         ...item,
