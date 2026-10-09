@@ -43,7 +43,16 @@ async function getComprobantes(req, res) {
 
     const comprobantesProcesados = await Promise.all(
       rows.map(async (item) => {
-        // 1. NATURALEZA IMPERATIVA
+        // 1. RESOLUCIÓN DE SOCIOS REALES (EVITAR 'GENERAL' PARA OBTENER TASAS DE TASASHUB)
+        const s1 = (item.nombre_socio_1 && item.nombre_socio_1 !== 'GENERAL') 
+          ? item.nombre_socio_1 
+          : (item.socio_1 || item.fb_socio_1 || 'NELSY');
+
+        const s2 = (item.nombre_socio_2 && item.nombre_socio_2 !== 'GENERAL') 
+          ? item.nombre_socio_2 
+          : (item.socio_2 || item.fb_socio_2 || 'MERLI');
+
+        // 2. NATURALEZA IMPERATIVA
         let naturalezaCalculada = item.tipo_op1;
         if (!item.esta_liquidado || !naturalezaCalculada || naturalezaCalculada === 'D') {
           const monComp = String(item.moneda || '').toUpperCase().trim();
@@ -59,23 +68,16 @@ async function getComprobantes(req, res) {
         }
 
         const loteFinal = item.lote_tasa || 'T063';
-        const montoComprobante = Number(item.monto || 0);
-        const monedaComp = String(item.moneda || '').toUpperCase().trim();
+        const montoComprobante = Math.abs(Number(item.monto || item.monto_local || 0));
+        const monedaComp = String(item.moneda || 'ARS').toUpperCase().trim();
 
-        // 2. RESOLUCIÓN DE TASAS INDIVIDUALES POR SOCIO
+        // 3. RESOLUCIÓN DE TASAS INDIVIDUALES POR SOCIO
         let t1 = Number(item.tasa_1) || 1;
         let t2 = Number(item.tasa_2) || 1;
 
         if (!item.esta_liquidado) {
-          const s1 = item.nombre_socio_1 || 'GENERAL';
-          const s2 = item.nombre_socio_2 || 'GENERAL';
-
-          if (!cacheTasasSocios[s1]) {
-            cacheTasasSocios[s1] = await obtenerTasasSocioFromHub(s1);
-          }
-          if (!cacheTasasSocios[s2]) {
-            cacheTasasSocios[s2] = await obtenerTasasSocioFromHub(s2);
-          }
+          if (!cacheTasasSocios[s1]) cacheTasasSocios[s1] = await obtenerTasasSocioFromHub(s1);
+          if (!cacheTasasSocios[s2]) cacheTasasSocios[s2] = await obtenerTasasSocioFromHub(s2);
 
           const tasaHubS1 = extraerTasaPorMoneda(cacheTasasSocios[s1], monedaComp);
           const tasaHubS2 = extraerTasaPorMoneda(cacheTasasSocios[s2], monedaComp);
@@ -84,12 +86,22 @@ async function getComprobantes(req, res) {
           t2 = tasaHubS2 > 0 ? tasaHubS2 : (t2 > 1 ? t2 : t1);
         }
 
-        // 3. FÓRMULA STRICTA RAW: monto / tasa_socio
+        // 4. FÓRMULA STRICTA RAW: monto / tasa_socio (ESCALAR ABSOLUTO)
         const m1Calculado = t1 > 0 ? Number((montoComprobante / t1).toFixed(2)) : montoComprobante;
         const m2Calculado = t2 > 0 ? Number((montoComprobante / t2).toFixed(2)) : montoComprobante;
 
         return {
           ...item,
+          // NOMBRES NORMALIZADOS DE SOCIOS
+          nombre_socio_1: s1,
+          socio_1: s1,
+          nombre_socio_2: s2,
+          socio_2: s2,
+
+          // MONEDAS BASE
+          moneda_base_socio1: item.moneda_base_socio1 || item.moneda_socio1 || 'ARS',
+          moneda_base_socio2: item.moneda_base_socio2 || item.moneda_socio2 || 'PEN',
+
           tipo_op1: naturalezaCalculada,
           tipo_manual: naturalezaCalculada,
           naturaleza: naturalezaCalculada,
@@ -100,13 +112,15 @@ async function getComprobantes(req, res) {
           tasa_1: t1,
           tasa_2: t2,
 
-          // CAMPOS DEL MODAL (monto_1 y monto_2)
-          monto_1: item.esta_liquidado && item.monto_1 !== null ? item.monto_1 : m1Calculado,
-          monto_2: item.esta_liquidado && item.monto_2 !== null ? item.monto_2 : m2Calculado,
+          // CAMPOS DEL MODAL (monto_1 y monto_2) Y MULTI-ALIAS
+          monto_1: item.esta_liquidado && item.monto_1 !== null ? Math.abs(item.monto_1) : m1Calculado,
+          monto_2: item.esta_liquidado && item.monto_2 !== null ? Math.abs(item.monto_2) : m2Calculado,
+          m1_socio: item.esta_liquidado && item.m1_socio !== null ? Math.abs(item.m1_socio) : m1Calculado,
+          m2_socio: item.esta_liquidado && item.m2_socio !== null ? Math.abs(item.m2_socio) : m2Calculado,
 
           // BRUTOS RAW
-          me1: item.esta_liquidado && item.me1 !== null ? item.me1 : m1Calculado,
-          me2: item.esta_liquidado && item.me2 !== null ? item.me2 : m2Calculado
+          me1: item.esta_liquidado && item.me1 !== null ? Math.abs(item.me1) : m1Calculado,
+          me2: item.esta_liquidado && item.me2 !== null ? Math.abs(item.me2) : m2Calculado
         };
       })
     );
