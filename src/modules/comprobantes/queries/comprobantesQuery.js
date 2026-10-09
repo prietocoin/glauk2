@@ -1,6 +1,6 @@
 /**
  * @file comprobantesQuery.js
- * @description Consulta SQL con resolución de lote histórico para comprobantes no liquidados.
+ * @description Consulta SQL de lectura pura para comprobantes.
  */
 const db = require('#config/database');
 
@@ -38,31 +38,18 @@ async function obtenerComprobantesCompletos(socio = null) {
       COALESCE(c.url_r2, i1.url_imagen, '') AS url_imagen,
       (l.hash_largo IS NOT NULL) AS esta_liquidado,
 
-      -- JIDs crudos del payload
+      -- JIDs crudos
       i1.grupo_raw AS grupo_raw_1,
       i1.usuario_raw AS usuario_raw_1,
       i2.grupo_raw AS grupo_raw_2,
       i2.usuario_raw AS usuario_raw_2,
       i1.timestamp_msg,
 
-      -- Datos de liquidación congelados
+      -- Liquidación
       l.socio_1, l.tipo_op1, l.monto_1, l.tasa_1, l.me1,
-      l.socio_2, l.tipo_op2, l.monto_2, l.tasa_2, l.me2,
+      l.socio_2, l.tipo_op2, l.monto_2, l.tasa_2, l.me2, l.lote_tasa,
 
-      -- Resolución de Lote de Tasa: Congelado o Histórico Sugerido
-      COALESCE(
-        l.lote_tasa,
-        (
-          SELECT t.id_tasa 
-          FROM tasas_glaukov t 
-          WHERE t.creado_en <= COALESCE(c.creado_en, NOW())
-          ORDER BY t.creado_en DESC, t.id DESC 
-          LIMIT 1
-        ),
-        'T052'
-      ) AS lote_tasa,
-
-      -- Nombres por JOIN original
+      -- Nombres resueltos
       COALESCE(l.socio_1, n_grupo1.nombre, n_user1.nombre, 'GENERAL') AS nombre_socio_1,
       COALESCE(l.socio_2, n_grupo2.nombre, n_user2.nombre, NULL) AS nombre_socio_2,
       COALESCE(n_grupo1.moneda_base, n_user1.moneda_base, 'USDT') AS moneda_base_socio1
