@@ -11,7 +11,35 @@ async function getComprobantes(req, res) {
   try {
     const { socio } = req.query;
     const rows = await obtenerComprobantesCompletos(socio);
-    return res.status(200).json(rows);
+
+    // Mapeamos y enriquecemos con la Regla Imperativa antes de responder al cliente
+    const comprobantesProcesados = rows.map(item => {
+      let naturalezaCalculada = item.tipo_op1;
+
+      // Si no está liquidado o no tiene naturaleza definida
+      if (!item.esta_liquidado || !naturalezaCalculada || naturalezaCalculada === 'D') {
+        const monComp = String(item.moneda || '').toUpperCase().trim();
+        const monSocio = String(item.moneda_base_socio1 || 'USDT').toUpperCase().trim();
+
+        // 🔴 REGLA IMPERATIVA: Moneda Comprobante == Moneda Base Socio -> Abono ('A')
+        if (monComp && monSocio && monComp === monSocio) {
+          naturalezaCalculada = 'A';
+        } else {
+          naturalezaCalculada = 'D';
+        }
+      }
+
+      return {
+        ...item,
+        // Inyectamos la naturaleza calculada en todas las variantes que consume el frontend
+        tipo_op1: naturalezaCalculada,
+        tipo_manual: naturalezaCalculada,
+        naturaleza: naturalezaCalculada,
+        tipo_op: naturalezaCalculada
+      };
+    });
+
+    return res.status(200).json(comprobantesProcesados);
   } catch (err) {
     console.error('[comprobantesController ❌ Error DB]:', err.message);
     return res.status(200).json([]);
