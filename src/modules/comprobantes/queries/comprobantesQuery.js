@@ -1,6 +1,6 @@
 /**
  * @file comprobantesQuery.js
- * @description Consulta SQL de lectura pura blindada.
+ * @description Consulta SQL con resolución de lote histórico para comprobantes no liquidados.
  */
 const db = require('#config/database');
 
@@ -45,9 +45,22 @@ async function obtenerComprobantesCompletos(socio = null) {
       i2.usuario_raw AS usuario_raw_2,
       i1.timestamp_msg,
 
-      -- Datos de liquidación
+      -- Datos de liquidación congelados
       l.socio_1, l.tipo_op1, l.monto_1, l.tasa_1, l.me1,
-      l.socio_2, l.tipo_op2, l.monto_2, l.tasa_2, l.me2, l.lote_tasa,
+      l.socio_2, l.tipo_op2, l.monto_2, l.tasa_2, l.me2,
+
+      -- Resolución de Lote de Tasa: Congelado o Histórico Sugerido
+      COALESCE(
+        l.lote_tasa,
+        (
+          SELECT t.id_tasa 
+          FROM tasas_glaukov t 
+          WHERE t.creado_en <= COALESCE(c.creado_en, NOW())
+          ORDER BY t.creado_en DESC, t.id DESC 
+          LIMIT 1
+        ),
+        'T052'
+      ) AS lote_tasa,
 
       -- Nombres por JOIN original
       COALESCE(l.socio_1, n_grupo1.nombre, n_user1.nombre, 'GENERAL') AS nombre_socio_1,
