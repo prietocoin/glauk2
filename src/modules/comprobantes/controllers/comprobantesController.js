@@ -66,16 +66,31 @@ async function getComprobantes(req, res) {
         const montoComprobante = Math.abs(Number(item.monto || item.monto_local || 0));
         const monedaComp = String(item.moneda || '').toUpperCase().trim();
 
-        // 3. RESOLUCIÓN DE TASAS INDIVIDUALES DESDE TASASHUB
+        // 3. RESOLUCIÓN DE TASAS INDIVIDUALES DESDE TASASHUB (BLINDADA CONTRA FALSOS 1.00)
         let t1 = Number(item.tasa_1) || 1;
         let t2 = Number(item.tasa_2) || 1;
 
         if (!item.esta_liquidado) {
           if (!cacheTasasSocios[s1]) cacheTasasSocios[s1] = await obtenerTasasSocioFromHub(s1);
           if (!cacheTasasSocios[s2]) cacheTasasSocios[s2] = await obtenerTasasSocioFromHub(s2);
+          if (!cacheTasasSocios['DEFAULT']) cacheTasasSocios['DEFAULT'] = await obtenerTasasSocioFromHub('DEFAULT');
 
-          const tasaHubS1 = extraerTasaPorMoneda(cacheTasasSocios[s1], monedaComp);
-          const tasaHubS2 = extraerTasaPorMoneda(cacheTasasSocios[s2], monedaComp);
+          let tasaHubS1 = extraerTasaPorMoneda(cacheTasasSocios[s1], monedaComp);
+          let tasaHubS2 = extraerTasaPorMoneda(cacheTasasSocios[s2], monedaComp);
+
+          // Si la moneda es local (PEN, ARS, COP, VES, CLP) y la tasa dio <= 1, tomar la tasa oficial del lote general
+          const esMonedaLocal = ['PEN', 'ARS', 'COP', 'VES', 'CLP', 'BRL'].includes(monedaComp);
+
+          if (esMonedaLocal) {
+            if (tasaHubS1 <= 1) {
+              const tasaDefault = extraerTasaPorMoneda(cacheTasasSocios['DEFAULT'], monedaComp);
+              tasaHubS1 = Number(item.tasa_1) > 1 ? Number(item.tasa_1) : (tasaDefault > 1 ? tasaDefault : 1);
+            }
+            if (tasaHubS2 <= 1) {
+              const tasaDefault = extraerTasaPorMoneda(cacheTasasSocios['DEFAULT'], monedaComp);
+              tasaHubS2 = Number(item.tasa_2) > 1 ? Number(item.tasa_2) : (tasaHubS1 > 1 ? tasaHubS1 : (tasaDefault > 1 ? tasaDefault : 1));
+            }
+          }
 
           t1 = tasaHubS1 > 0 ? tasaHubS1 : (t1 > 1 ? t1 : 1);
           t2 = tasaHubS2 > 0 ? tasaHubS2 : (t2 > 1 ? t2 : t1);
@@ -93,7 +108,7 @@ async function getComprobantes(req, res) {
           nombre_socio_2: s2,
           socio_2: s2,
 
-          // MONEDAS BASE FIELES DE PERFILES_GLAUKOV (SIN FALLBACKS HARCODEADOS)
+          // MONEDAS BASE FIELES DE PERFILES_GLAUKOV (SIN FALLBACKS HARDCODEADOS)
           moneda_base_socio1: item.moneda_base_socio1 || item.moneda_socio1,
           moneda_base_socio2: item.moneda_base_socio2 || item.moneda_socio2,
 
