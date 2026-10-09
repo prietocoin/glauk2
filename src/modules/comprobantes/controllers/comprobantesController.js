@@ -1,13 +1,12 @@
 /**
  * @file comprobantesController.js
- * @description Controlador HTTP para comprobantes integrado con TasasHub Engine y cálculo de netos/brutos.
+ * @description Controlador HTTP sin lógica cruzada: directo monto / tasa_socio.
  */
 const { obtenerComprobantesCompletos } = require('../queries/comprobantesQuery');
 const { eliminarComprobante } = require('../services/comprobantesBorradoService');
 const { releerIA } = require('../services/comprobantesIaService');
 const { liquidarComprobante, actualizarComprobante } = require('../services/comprobantesSnapshotService');
 
-// Helper para consumir TasasHub de forma ultra-segura
 async function obtenerTasasSocioFromHub(socio) {
   try {
     const socioQuery = socio && socio !== 'GENERAL' ? socio : 'DEFAULT';
@@ -16,7 +15,7 @@ async function obtenerTasasSocioFromHub(socio) {
     if (!response.ok) return null;
     return await response.json();
   } catch (err) {
-    console.warn('[comprobantesController ⚠️ TasasHub no disponible, usando fallback]:', err.message);
+    console.warn('[comprobantesController ⚠️ TasasHub no disponible]:', err.message);
     return null;
   }
 }
@@ -25,78 +24,64 @@ async function getComprobantes(req, res) {
   try {
     const { socio } = req.query;
     const rows = await obtenerComprobantesCompletos(socio);
-
-    // Cache local en memoria por petición para no sobrecargar a TasasHub
     const cacheTasasSocios = {};
 
     const comprobantesProcesados = await Promise.all(
       rows.map(async (item) => {
+        // 1. NATURALEZA DEL COMPROBANTE
         let naturalezaCalculada = item.tipo_op1;
-
-        // 1. RESOLUCIÓN DE NATURALEZA IMPERATIVA
         if (!item.esta_liquidado || !naturalezaCalculada || naturalezaCalculada === 'D') {
           const monComp = String(item.moneda || '').toUpperCase().trim();
-          const monSocio = String(item.moneda_base_socio1 || 'USDT').toUpperCase().trim();
+          const monSocio1 = String(item.moneda_base_socio1 || 'USDT').toUpperCase().trim();
 
-          if (monComp && monSocio && monComp === monSocio) {
+          if (monComp && monSocio1 && monComp === monSocio1) {
             naturalezaCalculada = 'A';
-          } else if (monComp !== monSocio && monComp !== '') {
+          } else if (monComp !== monSocio1 && monComp !== '') {
             naturalezaCalculada = 'P';
           } else {
             naturalezaCalculada = 'D';
           }
         }
 
-        // 2. RESOLUCIÓN DE TASAS CON TASASHUB
+        const loteFinal = item.lote_tasa || 'T063';
+        const montoComprobante = Number(item.monto || 0);
+
+        // 2. OBTENER TASAS DIRECTAS DE CADA SOCIO
         let t1 = Number(item.tasa_1) || 1;
         let t2 = Number(item.tasa_2) || 1;
-        const loteFinal = item.lote_tasa || 'T064';
 
         if (!item.esta_liquidado) {
-          const nombreSocio = item.nombre_socio_1 || 'GENERAL';
-          const monedaComp = String(item.moneda || '').toUpperCase().trim();
-          const monedaBaseSocio = String(item.moneda_base_socio1 || 'USDT').toUpperCase().trim();
+          const s1 = item.nombre_socio_1 || 'GENERAL';
+          const s2 = item.nombre_socio_2 || 'GENERAL';
 
-          if (monedaComp === monedaBaseSocio) {
-            t1 = 1.0;
-            t2 = 1.0;
-          } else {
-            if (!cacheTasasSocios[nombreSocio]) {
-              cacheTasasSocios[nombreSocio] = await obtenerTasasSocioFromHub(nombreSocio);
-            }
-            const dataTasas = cacheTasasSocios[nombreSocio];
+          if (!cacheTasasSocios[s1]) {
+            cacheTasasSocios[s1] = await obtenerTasasSocioFromHub(s1);
+          }
+          if (!cacheTasasSocios[s2]) {
+            cacheTasasSocios[s2] = await obtenerTasasSocioFromHub(s2);
+          }
 
-            if (dataTasas && dataTasas.tasas && dataTasas.tasas[monedaComp]) {
-              t1 = Number(dataTasas.tasas[monedaComp].tasa || dataTasas.tasas[monedaComp]) || t1;
-            } else if (dataTasas && dataTasas[monedaComp]) {
-              t1 = Number(dataTasas[monedaComp]) || t1;
-            }
-            t2 = t1;
+          const dataS1 = cacheTasasSocios[s1];
+          const dataS2 = cacheTasasSocios[s2];
+
+          if (dataS1) {
+            const val1 = Number(dataS1?.tasa || dataS1?.tasas?.[item.moneda]?.tasa || dataS1?.[item.moneda] || 0);
+            if (val1 > 0) t1 = val1;
+          }
+
+          if (dataS2) {
+            const val2 = Number(dataS2?.tasa || dataS2?.tasas?.[item.moneda]?.tasa || dataS2?.[item.moneda] || 0);
+            if (val2 > 0) t2 = val2;
           }
         }
 
-        // 3. CÁLCULO DE MONTOS BRUTOS EQUIVALENTES EN USDT (ME1 / ME2)
-        const montoLocal = Number(item.monto || 0);
-        const me1Calculado = t1 > 0 ? Number((montoLocal / t1).toFixed(2)) : montoLocal;
-        const me2Calculado = t2 > 0 ? Number((montoLocal / t2).toFixed(2)) : montoLocal;
+        // 3. FÓRMULA DIRECTA Y LIMPIA: monto_comprobante / tasa_socio
+        const m1Calculado = t1 > 0 ? Number((montoComprobante / t1).toFixed(2)) : montoComprobante;
+        const m2Calculado = t2 > 0 ? Number((montoComprobante / t2).toFixed(2)) : montoComprobante;
 
-        // 4. CÁLCULO DE MONTOS NETOS EN MONEDA DEL SOCIO (monto_1 / monto_2)
-        let m1Calculado = item.monto_1;
-        let m2Calculado = item.monto_2;
-
-        if (!item.esta_liquidado || m1Calculado === null) {
-          const monComp = String(item.moneda || '').toUpperCase().trim();
-          const monSocio1 = String(item.moneda_base_socio1 || 'USDT').toUpperCase().trim();
-
-          // Si el socio opera en la misma divisa del recibo, el neto es el valor local crudo.
-          // Si opera en USDT, el neto equivale al monto bruto convertido (ME1).
-          if (monSocio1 === monComp) {
-            m1Calculado = montoLocal;
-          } else {
-            m1Calculado = me1Calculado;
-          }
-          m2Calculado = me2Calculado;
-        }
+        // 4. ME1 y ME2 SON LOS MONTOS EN RAW
+        const me1Calculado = m1Calculado;
+        const me2Calculado = m2Calculado;
 
         return {
           ...item,
@@ -106,16 +91,17 @@ async function getComprobantes(req, res) {
           tipo_op: naturalezaCalculada,
           lote_tasa: loteFinal,
           lote_tasa_asignado: loteFinal,
+
           tasa_1: t1,
           tasa_2: t2,
 
-          // BRUTOS AUDITABLES EN USDT
-          me1: item.esta_liquidado && item.me1 ? item.me1 : me1Calculado,
-          me2: item.esta_liquidado && item.me2 ? item.me2 : me2Calculado,
+          // MONTO NETO DE CADA SOCIO
+          monto_1: item.esta_liquidado && item.monto_1 !== null ? item.monto_1 : m1Calculado,
+          monto_2: item.esta_liquidado && item.monto_2 !== null ? item.monto_2 : m2Calculado,
 
-          // NETOS EN LA MONEDA DEL SOCIO (INPUTS DEL MODAL)
-          monto_1: m1Calculado,
-          monto_2: m2Calculado
+          // BRUTOS RAW
+          me1: item.esta_liquidado && item.me1 !== null ? item.me1 : me1Calculado,
+          me2: item.esta_liquidado && item.me2 !== null ? item.me2 : me2Calculado
         };
       })
     );
