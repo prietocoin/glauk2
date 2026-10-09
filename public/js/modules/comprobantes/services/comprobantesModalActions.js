@@ -16,13 +16,26 @@ export function crearAccionesModal(state) {
       if (!item) return;
       
       try {
-        // Asignación mapeada con fallback directo si el mapper falla
-        state.itemEdicion = typeof prepararEdicionComprobante === 'function' 
-          ? prepararEdicionComprobante(item, state.loteActivo || 'T052') 
-          : { ...item };
+        // 1. Clonado profundo raw del item que viene del backend
+        const itemClonado = JSON.parse(JSON.stringify(item));
+
+        // 2. Mapeo preliminar
+        const itemMapeado = typeof prepararEdicionComprobante === 'function' 
+          ? prepararEdicionComprobante(itemClonado, state.loteActivo || 'T063') 
+          : { ...itemClonado };
+
+        // 3. BLINDAJE: Si el mapper borró los socios o montos netos, restaurar los del backend
+        state.itemEdicion = {
+          ...itemMapeado,
+          socio_1: (itemMapeado.socio_1 && itemMapeado.socio_1 !== 'GENERAL') ? itemMapeado.socio_1 : (item.nombre_socio_1 || item.socio_1 || 'NELSY'),
+          socio_2: (itemMapeado.socio_2 && itemMapeado.socio_2 !== 'GENERAL') ? itemMapeado.socio_2 : (item.nombre_socio_2 || item.socio_2 || 'MERLI'),
+          monto_1: item.monto_1 !== null && item.monto_1 !== undefined ? item.monto_1 : (itemMapeado.monto_1 || item.me1),
+          monto_2: item.monto_2 !== null && item.monto_2 !== undefined ? item.monto_2 : (itemMapeado.monto_2 || item.me2)
+        };
+
       } catch (e) {
-        console.warn('[ModalActions] Error en mapper, usando fallback copia direct:', e);
-        state.itemEdicion = { ...item };
+        console.warn('[ModalActions] Error en mapper, usando fallback copia directa:', e);
+        state.itemEdicion = JSON.parse(JSON.stringify(item));
       }
 
       // Cambiar visibilidad del modal INMEDIATAMENTE
