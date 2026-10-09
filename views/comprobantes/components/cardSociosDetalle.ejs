@@ -17,9 +17,9 @@
             x-text="'T1: ' + formatTasa(obtenerTasaSocioCalculada(item, 1))"></span>
     </div>
 
-    <!-- Volumen y Divisa Socio 1 -->
+    <!-- Volumen y Divisa Socio 1 (Lector fiel de perfiles_glaukov) -->
     <span class="col-span-5 font-mono font-bold text-right truncate text-[11px] text-emerald-400" 
-          x-text="formatMonto(Math.abs(parseFloat(obtenerME1(item)))) + ' ' + (item.moneda_base_socio1 || item.moneda_socio1 || item.moneda || 'ARS')"></span>
+          x-text="formatMonto(Math.abs(parseFloat(obtenerME1(item)))) + ' ' + (item.moneda_base_socio1 || item.moneda_socio1 || (directorio || []).find(d => d.nombre === (item.socio_1 || item.nombre_socio_1))?.moneda_base || 'USDT')"></span>
   </div>
   
   <!-- SOCIO 2 (Contraparte - Color Rosa: Render condicional) -->
@@ -34,9 +34,9 @@
               x-text="'T2: ' + formatTasa(obtenerTasaSocioCalculada(item, 2))"></span>
       </div>
 
-      <!-- Volumen y Divisa Socio 2 (Moneda real ej: PEN) -->
+      <!-- Volumen y Divisa Socio 2 (Lector fiel de perfiles_glaukov) -->
       <span class="col-span-5 font-mono font-bold text-right truncate text-[11px] text-emerald-400" 
-            x-text="formatMonto(Math.abs(parseFloat(obtenerME2(item)))) + ' ' + (item.moneda_base_socio2 || item.moneda_socio2 || (directorio || []).find(d => d.nombre === (item.socio_2 || item.nombre_socio_2))?.moneda_base || 'PEN')"></span>
+            x-text="formatMonto(Math.abs(parseFloat(obtenerME2(item)))) + ' ' + (item.moneda_base_socio2 || item.moneda_socio2 || (directorio || []).find(d => d.nombre === (item.socio_2 || item.nombre_socio_2))?.moneda_base || 'USDT')"></span>
     </div>
   </template>
 
