@@ -1,7 +1,7 @@
 <!-- ================================================================= -->
 <!-- COMPONENTE: cardSociosDetalle.ejs                                 -->
 <!-- UBICACIÓN: views/comprobantes/components/                          -->
-<!-- RESPONSABILIDAD: Muestra Socio 1, Socio 2, Tasas T1/T2 y ME1/ME2   -->
+<!-- RESPONSABILIDAD: Muestra Socio 1, Socio 2, Tasas T1/T2 y Montos    -->
 <!-- ================================================================= -->
 
 <div class="bg-[#030611] rounded-xl border border-blue-900/50 p-2 space-y-1">
@@ -17,10 +17,9 @@
             x-text="'T1: ' + formatTasa(obtenerTasaSocioCalculada(item, 1))"></span>
     </div>
 
-    <!-- Volumen ME1 -->
-    <span class="col-span-5 font-mono font-bold text-right truncate text-[11px]" 
-          :class="parseFloat(item.monto_1 !== undefined ? item.monto_1 : (item.m1_socio !== undefined ? item.m1_socio : item.monto)) < 0 ? 'text-rose-400' : 'text-emerald-400'" 
-          x-text="formatMonto(obtenerME1(item)) + ' ' + (item.moneda_socio_1 || 'USDT')"></span>
+    <!-- Volumen y Divisa Socio 1 -->
+    <span class="col-span-5 font-mono font-bold text-right truncate text-[11px] text-emerald-400" 
+          x-text="formatMonto(Math.abs(parseFloat(obtenerME1(item)))) + ' ' + (item.moneda_base_socio1 || item.moneda_socio1 || item.moneda || 'ARS')"></span>
   </div>
   
   <!-- SOCIO 2 (Contraparte - Color Rosa: Render condicional) -->
@@ -35,10 +34,9 @@
               x-text="'T2: ' + formatTasa(obtenerTasaSocioCalculada(item, 2))"></span>
       </div>
 
-      <!-- Volumen ME2 -->
-      <span class="col-span-5 font-mono font-bold text-right truncate text-[11px]" 
-            :class="parseFloat(item.monto_2 !== undefined ? item.monto_2 : (item.m2_socio !== undefined ? item.m2_socio : 0)) < 0 ? 'text-rose-400' : 'text-emerald-400'" 
-            x-text="formatMonto(obtenerME2(item)) + ' ' + (item.moneda_socio_2 || 'USDT')"></span>
+      <!-- Volumen y Divisa Socio 2 (Moneda real ej: PEN) -->
+      <span class="col-span-5 font-mono font-bold text-right truncate text-[11px] text-emerald-400" 
+            x-text="formatMonto(Math.abs(parseFloat(obtenerME2(item)))) + ' ' + (item.moneda_base_socio2 || item.moneda_socio2 || (directorio || []).find(d => d.nombre === (item.socio_2 || item.nombre_socio_2))?.moneda_base || 'PEN')"></span>
     </div>
   </template>
 
