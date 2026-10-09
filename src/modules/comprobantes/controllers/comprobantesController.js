@@ -1,6 +1,6 @@
 /**
  * @file comprobantesController.js
- * @description Controlador HTTP sin lógica cruzada: directo monto / tasa_socio.
+ * @description Controlador HTTP para comprobantes: cálculo directo sin intermediarios y población del modal.
  */
 const { obtenerComprobantesCompletos } = require('../queries/comprobantesQuery');
 const { eliminarComprobante } = require('../services/comprobantesBorradoService');
@@ -20,6 +20,21 @@ async function obtenerTasasSocioFromHub(socio) {
   }
 }
 
+function extraerTasaPorMoneda(dataHub, monedaBuscada) {
+  if (!dataHub) return 0;
+  const mon = String(monedaBuscada || '').toUpperCase().trim();
+
+  if (Array.isArray(dataHub.tasas)) {
+    const encontrado = dataHub.tasas.find(t => String(t.moneda || t.moneda_base || '').toUpperCase().trim() === mon);
+    if (encontrado) return Number(encontrado.tasa || encontrado.valor || 0);
+  }
+
+  const directo = dataHub.tasas?.[mon]?.tasa || dataHub.tasas?.[mon] || dataHub?.[mon];
+  if (directo) return Number(directo.tasa || directo);
+
+  return Number(dataHub.tasa || 0);
+}
+
 async function getComprobantes(req, res) {
   try {
     const { socio } = req.query;
@@ -28,7 +43,7 @@ async function getComprobantes(req, res) {
 
     const comprobantesProcesados = await Promise.all(
       rows.map(async (item) => {
-        // 1. NATURALEZA DEL COMPROBANTE
+        // 1. NATURALEZA IMPERATIVA
         let naturalezaCalculada = item.tipo_op1;
         if (!item.esta_liquidado || !naturalezaCalculada || naturalezaCalculada === 'D') {
           const monComp = String(item.moneda || '').toUpperCase().trim();
@@ -45,8 +60,9 @@ async function getComprobantes(req, res) {
 
         const loteFinal = item.lote_tasa || 'T063';
         const montoComprobante = Number(item.monto || 0);
+        const monedaComp = String(item.moneda || '').toUpperCase().trim();
 
-        // 2. OBTENER TASAS DIRECTAS DE CADA SOCIO
+        // 2. RESOLUCIÓN DE TASAS INDIVIDUALES POR SOCIO
         let t1 = Number(item.tasa_1) || 1;
         let t2 = Number(item.tasa_2) || 1;
 
@@ -61,27 +77,16 @@ async function getComprobantes(req, res) {
             cacheTasasSocios[s2] = await obtenerTasasSocioFromHub(s2);
           }
 
-          const dataS1 = cacheTasasSocios[s1];
-          const dataS2 = cacheTasasSocios[s2];
+          const tasaHubS1 = extraerTasaPorMoneda(cacheTasasSocios[s1], monedaComp);
+          const tasaHubS2 = extraerTasaPorMoneda(cacheTasasSocios[s2], monedaComp);
 
-          if (dataS1) {
-            const val1 = Number(dataS1?.tasa || dataS1?.tasas?.[item.moneda]?.tasa || dataS1?.[item.moneda] || 0);
-            if (val1 > 0) t1 = val1;
-          }
-
-          if (dataS2) {
-            const val2 = Number(dataS2?.tasa || dataS2?.tasas?.[item.moneda]?.tasa || dataS2?.[item.moneda] || 0);
-            if (val2 > 0) t2 = val2;
-          }
+          t1 = tasaHubS1 > 0 ? tasaHubS1 : (t1 > 1 ? t1 : 1);
+          t2 = tasaHubS2 > 0 ? tasaHubS2 : (t2 > 1 ? t2 : t1);
         }
 
-        // 3. FÓRMULA DIRECTA Y LIMPIA: monto_comprobante / tasa_socio
+        // 3. FÓRMULA STRICTA RAW: monto / tasa_socio
         const m1Calculado = t1 > 0 ? Number((montoComprobante / t1).toFixed(2)) : montoComprobante;
         const m2Calculado = t2 > 0 ? Number((montoComprobante / t2).toFixed(2)) : montoComprobante;
-
-        // 4. ME1 y ME2 SON LOS MONTOS EN RAW
-        const me1Calculado = m1Calculado;
-        const me2Calculado = m2Calculado;
 
         return {
           ...item,
@@ -95,13 +100,13 @@ async function getComprobantes(req, res) {
           tasa_1: t1,
           tasa_2: t2,
 
-          // MONTO NETO DE CADA SOCIO
+          // CAMPOS DEL MODAL (monto_1 y monto_2)
           monto_1: item.esta_liquidado && item.monto_1 !== null ? item.monto_1 : m1Calculado,
           monto_2: item.esta_liquidado && item.monto_2 !== null ? item.monto_2 : m2Calculado,
 
           // BRUTOS RAW
-          me1: item.esta_liquidado && item.me1 !== null ? item.me1 : me1Calculado,
-          me2: item.esta_liquidado && item.me2 !== null ? item.me2 : me2Calculado
+          me1: item.esta_liquidado && item.me1 !== null ? item.me1 : m1Calculado,
+          me2: item.esta_liquidado && item.me2 !== null ? item.me2 : m2Calculado
         };
       })
     );
