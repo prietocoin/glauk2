@@ -1,6 +1,6 @@
 /**
  * @file comprobantesController.js
- * @description Controlador HTTP para comprobantes: cálculo directo sin intermediarios y lectura fiel de perfiles_glaukov.
+ * @description Controlador HTTP para comprobantes: resolución de tasas reales y lectura fiel de perfiles_glaukov.
  */
 const { obtenerComprobantesCompletos } = require('../queries/comprobantesQuery');
 const { eliminarComprobante } = require('../services/comprobantesBorradoService');
@@ -24,13 +24,17 @@ function extraerTasaPorMoneda(dataHub, monedaBuscada) {
   if (!dataHub) return 0;
   const mon = String(monedaBuscada || '').toUpperCase().trim();
 
+  // Búsqueda en array de tasas
   if (Array.isArray(dataHub.tasas)) {
-    const encontrado = dataHub.tasas.find(t => String(t.moneda || t.moneda_base || '').toUpperCase().trim() === mon);
-    if (encontrado) return Number(encontrado.tasa || encontrado.valor || 0);
+    const encontrado = dataHub.tasas.find(t => String(t.moneda || t.moneda_base || t.code || '').toUpperCase().trim() === mon);
+    if (encontrado) return Number(encontrado.tasa || encontrado.valor || encontrado.precio || 0);
   }
 
+  // Búsqueda en mapa/diccionario
   const directo = dataHub.tasas?.[mon]?.tasa || dataHub.tasas?.[mon] || dataHub?.[mon];
-  if (directo) return Number(directo.tasa || directo);
+  if (directo !== undefined && directo !== null) {
+    return Number(directo.tasa || directo);
+  }
 
   return Number(dataHub.tasa || 0);
 }
@@ -43,11 +47,11 @@ async function getComprobantes(req, res) {
 
     const comprobantesProcesados = await Promise.all(
       rows.map(async (item) => {
-        // 1. RESOLUCIÓN DE SOCIOS REALES PROVENIENTES DE LA QUERY DE POSTGRESQL
+        // 1. RESOLUCIÓN DE SOCIOS REALES PROVENIENTES DE POSTGRESQL
         const s1 = item.nombre_socio_1 || item.socio_1 || item.fb_socio_1 || 'GENERAL';
         const s2 = item.nombre_socio_2 || item.socio_2 || item.fb_socio_2 || 'GENERAL';
 
-        // 2. NATURALEZA IMPERATIVA DE LA OPERACIÓN
+        // 2. NATURALEZA IMPERATIVA
         let naturalezaCalculada = item.tipo_op1;
         if (!item.esta_liquidado || !naturalezaCalculada || naturalezaCalculada === 'D') {
           const monComp = String(item.moneda || '').toUpperCase().trim();
@@ -66,9 +70,9 @@ async function getComprobantes(req, res) {
         const montoComprobante = Math.abs(Number(item.monto || item.monto_local || 0));
         const monedaComp = String(item.moneda || '').toUpperCase().trim();
 
-        // 3. RESOLUCIÓN DE TASAS INDIVIDUALES DESDE TASASHUB (BLINDADA CONTRA FALSOS 1.00)
-        let t1 = Number(item.tasa_1) || 1;
-        let t2 = Number(item.tasa_2) || 1;
+        // 3. RESOLUCIÓN DE TASAS INDIVIDUALES POR SOCIO DESDE TASASHUB
+        let t1 = Number(item.tasa_1) || 0;
+        let t2 = Number(item.tasa_2) || 0;
 
         if (!item.esta_liquidado) {
           if (!cacheTasasSocios[s1]) cacheTasasSocios[s1] = await obtenerTasasSocioFromHub(s1);
@@ -77,23 +81,22 @@ async function getComprobantes(req, res) {
 
           let tasaHubS1 = extraerTasaPorMoneda(cacheTasasSocios[s1], monedaComp);
           let tasaHubS2 = extraerTasaPorMoneda(cacheTasasSocios[s2], monedaComp);
+          const tasaDefault = extraerTasaPorMoneda(cacheTasasSocios['DEFAULT'], monedaComp);
 
-          // Si la moneda es local (PEN, ARS, COP, VES, CLP) y la tasa dio <= 1, tomar la tasa oficial del lote general
-          const esMonedaLocal = ['PEN', 'ARS', 'COP', 'VES', 'CLP', 'BRL'].includes(monedaComp);
+          // MONEDAS LOCALES DE CAMBIO ALTO (PEN, ARS, COP, VES, CLP, BRL)
+          const esMonedaLocalAlta = ['PEN', 'ARS', 'COP', 'VES', 'CLP', 'BRL'].includes(monedaComp);
 
-          if (esMonedaLocal) {
+          if (esMonedaLocalAlta) {
             if (tasaHubS1 <= 1) {
-              const tasaDefault = extraerTasaPorMoneda(cacheTasasSocios['DEFAULT'], monedaComp);
               tasaHubS1 = Number(item.tasa_1) > 1 ? Number(item.tasa_1) : (tasaDefault > 1 ? tasaDefault : 1);
             }
             if (tasaHubS2 <= 1) {
-              const tasaDefault = extraerTasaPorMoneda(cacheTasasSocios['DEFAULT'], monedaComp);
               tasaHubS2 = Number(item.tasa_2) > 1 ? Number(item.tasa_2) : (tasaHubS1 > 1 ? tasaHubS1 : (tasaDefault > 1 ? tasaDefault : 1));
             }
           }
 
-          t1 = tasaHubS1 > 0 ? tasaHubS1 : (t1 > 1 ? t1 : 1);
-          t2 = tasaHubS2 > 0 ? tasaHubS2 : (t2 > 1 ? t2 : t1);
+          t1 = tasaHubS1 > 0 ? tasaHubS1 : (t1 > 0 ? t1 : 1);
+          t2 = tasaHubS2 > 0 ? tasaHubS2 : (t2 > 0 ? t2 : t1);
         }
 
         // 4. CÁLCULO DE MONTOS: ESCALAR ABSOLUTO DIRECTO (monto / tasa)
@@ -102,13 +105,12 @@ async function getComprobantes(req, res) {
 
         return {
           ...item,
-          // NOMBRES EXACTOS
           nombre_socio_1: s1,
           socio_1: s1,
           nombre_socio_2: s2,
           socio_2: s2,
 
-          // MONEDAS BASE FIELES DE PERFILES_GLAUKOV (SIN FALLBACKS HARDCODEADOS)
+          // MONEDAS BASE FIELES DE PERFILES_GLAUKOV
           moneda_base_socio1: item.moneda_base_socio1 || item.moneda_socio1,
           moneda_base_socio2: item.moneda_base_socio2 || item.moneda_socio2,
 
@@ -122,7 +124,7 @@ async function getComprobantes(req, res) {
           tasa_1: t1,
           tasa_2: t2,
 
-          // MONTOS ABSOLUTOS
+          // MONTOS ABSOLUTOS DE SOCIO
           monto_1: item.esta_liquidado && item.monto_1 !== null ? Math.abs(item.monto_1) : m1Calculado,
           monto_2: item.esta_liquidado && item.monto_2 !== null ? Math.abs(item.monto_2) : m2Calculado,
           m1_socio: item.esta_liquidado && item.m1_socio !== null ? Math.abs(item.m1_socio) : m1Calculado,
