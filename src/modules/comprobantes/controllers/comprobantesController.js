@@ -1,6 +1,6 @@
 /**
  * @file comprobantesController.js
- * @description Controlador HTTP para comprobantes integrado con TasasHub Engine.
+ * @description Controlador HTTP para comprobantes integrado con TasasHub Engine y cálculo de netos/brutos.
  */
 const { obtenerComprobantesCompletos } = require('../queries/comprobantesQuery');
 const { eliminarComprobante } = require('../services/comprobantesBorradoService');
@@ -11,7 +11,6 @@ const { liquidarComprobante, actualizarComprobante } = require('../services/comp
 async function obtenerTasasSocioFromHub(socio) {
   try {
     const socioQuery = socio && socio !== 'GENERAL' ? socio : 'DEFAULT';
-    // URL base de TasasHub (ajustar puerto/host si es necesario, ej: http://127.0.0.1:3000)
     const baseUrl = process.env.TASASHUB_URL || 'http://127.0.0.1:3000'; 
     const response = await fetch(`${baseUrl}/api/v1/tasas/calcular/${encodeURIComponent(socioQuery)}`);
     if (!response.ok) return null;
@@ -62,13 +61,11 @@ async function getComprobantes(req, res) {
             t1 = 1.0;
             t2 = 1.0;
           } else {
-            // Consultamos TasasHub (usando caché para el mismo socio)
             if (!cacheTasasSocios[nombreSocio]) {
               cacheTasasSocios[nombreSocio] = await obtenerTasasSocioFromHub(nombreSocio);
             }
             const dataTasas = cacheTasasSocios[nombreSocio];
 
-            // Extraemos la tasa asignada a la moneda (o fallback a 1.0)
             if (dataTasas && dataTasas.tasas && dataTasas.tasas[monedaComp]) {
               t1 = Number(dataTasas.tasas[monedaComp].tasa || dataTasas.tasas[monedaComp]) || t1;
             } else if (dataTasas && dataTasas[monedaComp]) {
@@ -78,10 +75,28 @@ async function getComprobantes(req, res) {
           }
         }
 
-        // 3. CÁLCULO DE MONTOS EQUIVALENTES (ME1 / ME2)
+        // 3. CÁLCULO DE MONTOS BRUTOS EQUIVALENTES EN USDT (ME1 / ME2)
         const montoLocal = Number(item.monto || 0);
         const me1Calculado = t1 > 0 ? Number((montoLocal / t1).toFixed(2)) : montoLocal;
         const me2Calculado = t2 > 0 ? Number((montoLocal / t2).toFixed(2)) : montoLocal;
+
+        // 4. CÁLCULO DE MONTOS NETOS EN MONEDA DEL SOCIO (monto_1 / monto_2)
+        let m1Calculado = item.monto_1;
+        let m2Calculado = item.monto_2;
+
+        if (!item.esta_liquidado || m1Calculado === null) {
+          const monComp = String(item.moneda || '').toUpperCase().trim();
+          const monSocio1 = String(item.moneda_base_socio1 || 'USDT').toUpperCase().trim();
+
+          // Si el socio opera en la misma divisa del recibo, el neto es el valor local crudo.
+          // Si opera en USDT, el neto equivale al monto bruto convertido (ME1).
+          if (monSocio1 === monComp) {
+            m1Calculado = montoLocal;
+          } else {
+            m1Calculado = me1Calculado;
+          }
+          m2Calculado = me2Calculado;
+        }
 
         return {
           ...item,
@@ -93,8 +108,14 @@ async function getComprobantes(req, res) {
           lote_tasa_asignado: loteFinal,
           tasa_1: t1,
           tasa_2: t2,
+
+          // BRUTOS AUDITABLES EN USDT
           me1: item.esta_liquidado && item.me1 ? item.me1 : me1Calculado,
-          me2: item.esta_liquidado && item.me2 ? item.me2 : me2Calculado
+          me2: item.esta_liquidado && item.me2 ? item.me2 : me2Calculado,
+
+          // NETOS EN LA MONEDA DEL SOCIO (INPUTS DEL MODAL)
+          monto_1: m1Calculado,
+          monto_2: m2Calculado
         };
       })
     );
