@@ -1,10 +1,10 @@
 /**
  * @file comprobantesApiService.js
- * @description Servicio unificado para la API de comprobantes.
+ * @description Servicio unificado atómico para la API de comprobantes.
  * Realiza la resolución determinista de tasas T1 y T2 desde TasasHub y PostgreSQL.
  */
 
-const db = require('../../../config/db'); // Ajustar según la ubicación de tu conexión a PostgreSQL (pg/db)
+const db = require('../../../config/db');
 
 const TASASHUB_BASE_URL = process.env.TASASHUB_URL || 'https://automat-tasashub.fyi6ur.easypanel.host/api/v1/tasas/calcular';
 const REMITHUB_BASE_URL = process.env.REMITHUB_URL || 'https://automat-remithub.fyi6ur.easypanel.host/api/comprobantes';
@@ -23,7 +23,18 @@ async function obtenerPerfilSocio(nombreSocio) {
       LIMIT 1;
     `;
     const { rows } = await db.query(query, [nombreSocio]);
-    return rows[0] || null;
+    if (!rows[0]) return null;
+
+    const perfil = rows[0];
+    // Asegurar que 'monedas' sea un objeto válido
+    if (typeof perfil.monedas === 'string') {
+      try {
+        perfil.monedas = JSON.parse(perfil.monedas);
+      } catch (e) {
+        perfil.monedas = {};
+      }
+    }
+    return perfil;
   } catch (err) {
     console.warn(`[comprobantesApiService ⚠️ DB Perfil Error para ${nombreSocio}]:`, err.message);
     return null;
@@ -44,7 +55,17 @@ async function obtenerLoteTasasGlaukov(idLote) {
       LIMIT 1;
     `;
     const { rows } = await db.query(query, [idLote]);
-    return rows[0] || null;
+    if (!rows[0]) return null;
+
+    const loteObj = rows[0];
+    if (typeof loteObj.tasas === 'string') {
+      try {
+        loteObj.tasas = JSON.parse(loteObj.tasas);
+      } catch (e) {
+        loteObj.tasas = {};
+      }
+    }
+    return loteObj;
   } catch (err) {
     console.warn(`[comprobantesApiService ⚠️ DB Lote Error para ${idLote}]:`, err.message);
     return null;
@@ -104,7 +125,7 @@ function extraerTasaHub(dataHub, monedaComprobante, naturaleza) {
  * Procesa un registro individual de comprobante de forma atómica.
  */
 async function procesarComprobanteAtomi(item) {
-  const lote = String(item.lote_tasa || item.lote_tasa_asignado || 'T001').trim();
+  const lote = String(item.lote_tasa || item.lote_tasa_asignado || item.id_tasa || 'T001').trim();
   const monto = Math.abs(Number(item.monto || item.monto_local || 0));
   const moneda = String(item.moneda || item.moneda_local || '').trim().toUpperCase();
 
@@ -141,7 +162,7 @@ async function procesarComprobanteAtomi(item) {
     }
   }
 
-  // 2. Resolución de Tasas (T1 / T2)
+  // 2. Resolución Determinista de Tasas (T1 / T2)
   let tasa1 = 'N/A';
   if (tipoCalculado === 'A' || (monBase1 && moneda && monBase1 === moneda)) {
     tasa1 = 1.00;
@@ -209,12 +230,12 @@ async function getComprobantesApi(req, res) {
   try {
     let comprobantesRaw = [];
 
-    // Intentar leer de DB si existe tabla, o fallback a RemitHub
+    // Query flexible sin asumir columna ID
     try {
-      const { rows } = await db.query('SELECT * FROM comprobantes ORDER BY id DESC LIMIT 50');
+      const { rows } = await db.query('SELECT * FROM comprobantes LIMIT 50');
       if (rows && rows.length > 0) comprobantesRaw = rows;
     } catch (e) {
-      // Fallback a API de RemitHub
+      // Fallback seguro a RemitHub API si la DB local no responde
       const responseRemit = await fetch(REMITHUB_BASE_URL);
       if (responseRemit.ok) {
         comprobantesRaw = await responseRemit.json();
