@@ -1,6 +1,6 @@
 /**
  * @file comprobantesController.js
- * @description Controlador HTTP para comprobantes: cálculo directo sin intermediarios y población del modal.
+ * @description Controlador HTTP para comprobantes: cálculo directo sin intermediarios y lectura fiel de perfiles_glaukov.
  */
 const { obtenerComprobantesCompletos } = require('../queries/comprobantesQuery');
 const { eliminarComprobante } = require('../services/comprobantesBorradoService');
@@ -43,16 +43,11 @@ async function getComprobantes(req, res) {
 
     const comprobantesProcesados = await Promise.all(
       rows.map(async (item) => {
-        // 1. RESOLUCIÓN DE SOCIOS REALES (EVITAR 'GENERAL' PARA OBTENER TASAS DE TASASHUB)
-        const s1 = (item.nombre_socio_1 && item.nombre_socio_1 !== 'GENERAL') 
-          ? item.nombre_socio_1 
-          : (item.socio_1 || item.fb_socio_1 || 'NELSY');
+        // 1. RESOLUCIÓN DE SOCIOS REALES PROVENIENTES DE LA QUERY DE POSTGRESQL
+        const s1 = item.nombre_socio_1 || item.socio_1 || item.fb_socio_1 || 'GENERAL';
+        const s2 = item.nombre_socio_2 || item.socio_2 || item.fb_socio_2 || 'GENERAL';
 
-        const s2 = (item.nombre_socio_2 && item.nombre_socio_2 !== 'GENERAL') 
-          ? item.nombre_socio_2 
-          : (item.socio_2 || item.fb_socio_2 || 'MERLI');
-
-        // 2. NATURALEZA IMPERATIVA
+        // 2. NATURALEZA IMPERATIVA DE LA OPERACIÓN
         let naturalezaCalculada = item.tipo_op1;
         if (!item.esta_liquidado || !naturalezaCalculada || naturalezaCalculada === 'D') {
           const monComp = String(item.moneda || '').toUpperCase().trim();
@@ -69,9 +64,9 @@ async function getComprobantes(req, res) {
 
         const loteFinal = item.lote_tasa || 'T063';
         const montoComprobante = Math.abs(Number(item.monto || item.monto_local || 0));
-        const monedaComp = String(item.moneda || 'ARS').toUpperCase().trim();
+        const monedaComp = String(item.moneda || '').toUpperCase().trim();
 
-        // 3. RESOLUCIÓN DE TASAS INDIVIDUALES POR SOCIO
+        // 3. RESOLUCIÓN DE TASAS INDIVIDUALES DESDE TASASHUB
         let t1 = Number(item.tasa_1) || 1;
         let t2 = Number(item.tasa_2) || 1;
 
@@ -86,21 +81,21 @@ async function getComprobantes(req, res) {
           t2 = tasaHubS2 > 0 ? tasaHubS2 : (t2 > 1 ? t2 : t1);
         }
 
-        // 4. FÓRMULA STRICTA RAW: monto / tasa_socio (ESCALAR ABSOLUTO)
+        // 4. CÁLCULO DE MONTOS: ESCALAR ABSOLUTO DIRECTO (monto / tasa)
         const m1Calculado = t1 > 0 ? Number((montoComprobante / t1).toFixed(2)) : montoComprobante;
         const m2Calculado = t2 > 0 ? Number((montoComprobante / t2).toFixed(2)) : montoComprobante;
 
         return {
           ...item,
-          // NOMBRES NORMALIZADOS DE SOCIOS
+          // NOMBRES EXACTOS
           nombre_socio_1: s1,
           socio_1: s1,
           nombre_socio_2: s2,
           socio_2: s2,
 
-          // MONEDAS BASE
-          moneda_base_socio1: item.moneda_base_socio1 || item.moneda_socio1 || 'ARS',
-          moneda_base_socio2: item.moneda_base_socio2 || item.moneda_socio2 || 'PEN',
+          // MONEDAS BASE FIELES DE PERFILES_GLAUKOV (SIN FALLBACKS HARCODEADOS)
+          moneda_base_socio1: item.moneda_base_socio1 || item.moneda_socio1,
+          moneda_base_socio2: item.moneda_base_socio2 || item.moneda_socio2,
 
           tipo_op1: naturalezaCalculada,
           tipo_manual: naturalezaCalculada,
@@ -112,7 +107,7 @@ async function getComprobantes(req, res) {
           tasa_1: t1,
           tasa_2: t2,
 
-          // CAMPOS DEL MODAL (monto_1 y monto_2) Y MULTI-ALIAS
+          // MONTOS ABSOLUTOS
           monto_1: item.esta_liquidado && item.monto_1 !== null ? Math.abs(item.monto_1) : m1Calculado,
           monto_2: item.esta_liquidado && item.monto_2 !== null ? Math.abs(item.monto_2) : m2Calculado,
           m1_socio: item.esta_liquidado && item.m1_socio !== null ? Math.abs(item.m1_socio) : m1Calculado,
