@@ -1,0 +1,27 @@
+<!-- ================================================================= -->
+<!-- COMPONENTE: cardImagen.ejs                                        -->
+<!-- UBICACIÓN: views/comprobantes/components/                         -->
+<!-- RESPONSABILIDAD: Muestra foto Cloudflare R2 con modal/zoom        -->
+<!-- ================================================================= -->
+
+<div class="w-full h-40 bg-slate-950/90 rounded-xl border border-blue-900/40 overflow-hidden flex items-center justify-center relative group">
+  
+  <!-- 🟢 IMAGEN R2 CLOUDFLARE -->
+  <template x-if="item.link_img || item.url_r2_comprobante">
+    <img 
+      :src="item.link_img || item.url_r2_comprobante" 
+      alt="Comprobante R2"
+      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
+      @click="window.open(item.link_img || item.url_r2_comprobante, '_blank')"
+      @error="$el.style.display='none'; $el.nextElementSibling.classList.remove('hidden')"
+    />
+  </template>
+
+  <!-- 🟢 FALLBACK CUANDO NO HAY IMAGEN EN R2 O FALLA LA RED -->
+  <div class="hidden flex-col items-center justify-center text-slate-500 gap-1 select-none"
+       :class="{ '!flex': !item.link_img && !item.url_r2_comprobante }">
+    <span class="text-sm opacity-50">🖼️</span>
+    <span class="font-mono text-[9px] text-slate-500 tracking-wider">SIN IMAGEN</span>
+  </div>
+
+</div>
