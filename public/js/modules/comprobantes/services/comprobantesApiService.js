@@ -1,40 +1,29 @@
 /**
- * HANDLER HTTP PRINCIPAL DE LA API
- * Devuelve únicamente JSON puro.
+ * @file comprobantesApiService.js
+ * @description Servicio atómico de red para consumir la API v2 de comprobantes.
  */
-async function getComprobantesApi(req, res) {
+
+const API_V2_URL = 'https://automat-gaukapi.fyi6ur.easypanel.host/api/v2/comprobantes';
+
+export async function fetchComprobantesPaginados(params = {}) {
   try {
-    let comprobantesRaw = [];
+    const { page = 1, limit = 20, socio = '', rol = '', fechaInicio = '', fechaFin = '' } = params;
 
-    // Consulta flexible a la base de datos
-    try {
-      const { rows } = await db.query('SELECT * FROM comprobantes LIMIT 50');
-      if (rows && rows.length > 0) comprobantesRaw = rows;
-    } catch (e) {
-      // Fallback a RemitHub si no hay tablas locales
-      const responseRemit = await fetch(REMITHUB_BASE_URL);
-      if (responseRemit.ok) {
-        comprobantesRaw = await responseRemit.json();
-      }
-    }
+    const url = new URL(API_V2_URL);
+    url.searchParams.append('page', page);
+    url.searchParams.append('limit', limit);
+    if (socio) url.searchParams.append('socio', socio);
+    if (rol) url.searchParams.append('rol', rol);
+    if (fechaInicio) url.searchParams.append('fechaInicio', fechaInicio);
+    if (fechaFin) url.searchParams.append('fechaFin', fechaFin);
 
-    const listaData = Array.isArray(comprobantesRaw) ? comprobantesRaw : [comprobantesRaw];
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
 
-    // Procesamiento en paralelo de los comprobantes
-    const resultadoJSON = await Promise.all(
-      listaData.map((item) => procesarComprobanteAtomi(item))
-    );
-
-    // 🟢 FORZAR RESPUESTA COMO JSON PURO EN CABECERAS Y CUERPO
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    return res.status(200).json(resultadoJSON);
-
+    const json = await res.json();
+    return json?.comprobantes || json?.data || (Array.isArray(json) ? json : []);
   } catch (err) {
-    console.error('[comprobantesApiService ❌ Error Global]:', err);
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    return res.status(500).json({ 
-      error: 'Error al procesar la API de comprobantes', 
-      detalle: err.message 
-    });
+    console.error('[comprobantesApiService ❌ Fetch Error]:', err.message);
+    return [];
   }
 }
