@@ -1,6 +1,6 @@
 /**
  * @file comprobantesMapperService.js
- * @description Mapeador atómico para transformaciones de tarjetas, roles, imágenes R2 e insignias.
+ * @description Mapeador atómico para transformaciones de tarjetas, roles, fechas, hash e imágenes R2.
  */
 
 function truncarTasaComercial(val) {
@@ -26,15 +26,28 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
 
   const c = item.comprobante || item;
 
+  // 1. EXTRACCIÓN Y FORMATEO DEFENSIVO DE FECHA Y HORA
+  const rawDateStr = c.fecha_hora_input || c.fecha_hora_comprobante || c.fecha_comprobante || c.fecha || c.created_at || '';
   let dateInput = '';
-  if (c.fecha_hora_comprobante || c.fecha_hora_input) {
-    const rawDate = c.fecha_hora_input || c.fecha_hora_comprobante;
-    const d = new Date(rawDate);
+  let fechaFmt = 'S/F';
+  let horaFmt = 'S/F';
+
+  if (rawDateStr) {
+    const d = new Date(rawDateStr);
     if (!isNaN(d.getTime())) {
       const tzOffset = d.getTimezoneOffset() * 60000;
-      dateInput = (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 16);
+      const localDate = new Date(d.getTime() - tzOffset);
+      const isoStr = localDate.toISOString();
+
+      dateInput = isoStr.slice(0, 16);
+      fechaFmt = isoStr.slice(0, 10); // YYYY-MM-DD
+      horaFmt = isoStr.slice(11, 19); // HH:MM:SS
     }
   }
+
+  // 2. EXTRACCIÓN DEFENSIVA DEL HASH
+  const hashLargoFinal = c.hash_largo || c.hash || c.hash_corto || c.referencia || '';
+  const hashCortoFinal = c.hash_corto || (hashLargoFinal ? String(hashLargoFinal).replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase() : 'HASH');
 
   const fallbackMonto = Math.abs(parseFloat(c.monto || c.monto_local || 0)) || 0;
 
@@ -59,7 +72,14 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
 
   return {
     ...c,
-    hash_largo: c.hash_largo || '',
+    // HASH Y FECHAS PARSEADAS
+    hash_largo: hashLargoFinal,
+    hash_corto: hashCortoFinal,
+    fecha_fmt: fechaFmt,
+    hora_fmt: horaFmt,
+    fecha_hora_input: dateInput,
+    fecha_hora_comprobante: rawDateStr,
+
     banco: (c.banco && c.banco !== '-') ? c.banco : 'BANCO',
     referencia: (c.referencia && c.referencia !== '-') ? c.referencia : 'N/A',
     titular: (c.titular && c.titular !== '-') ? c.titular : 'TITULAR NO DEFINIDO',
@@ -96,8 +116,6 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
     monto_1: calcM1,
     monto_2: calcM2,
     me1: calcM1,
-    me2: calcM2,
-
-    fecha_hora_input: dateInput
+    me2: calcM2
   };
 }
