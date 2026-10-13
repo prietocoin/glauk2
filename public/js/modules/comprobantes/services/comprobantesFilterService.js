@@ -2,7 +2,7 @@
  * =================================================================
  * @file comprobantesFilterService.js
  * @path public/js/modules/comprobantes/services/comprobantesFilterService.js
- * @description Servicio atómico de cortafuegos y ordenamiento (Fecha/Monto).
+ * @description Servicio atómico de cortafuegos (Filtro x2 estricto) y ordenamiento.
  * =================================================================
  */
 
@@ -16,6 +16,14 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
   if (!Array.isArray(listaBase) || listaBase.length === 0) return [];
 
   let resultado = [...listaBase];
+
+  // 🟢 0. CORTAFUEGOS OBLIGATORIO x2 (Descartar registros 1x / basura unipersonal)
+  resultado = resultado.filter(item => {
+    if (!item) return false;
+    const s2 = String(item.socio_2 || item.nombre_socio_2 || '').trim().toUpperCase();
+    return Boolean(s2 && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO' && s2 !== 'S/D');
+  });
+
   const socioBuscado = limpiarFiltro(filtros.filtroSocio).toUpperCase();
 
   // 1. CORTAFUEGOS DE SOCIO (Socio 1 o Socio 2)
@@ -32,7 +40,6 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
     }
 
     resultado = resultado.filter(item => {
-      if (!item) return false;
       const s1 = String(item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
       const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
       return sociosValidos.has(s1) || sociosValidos.has(s2);
@@ -46,7 +53,7 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
       const startMs = startObj.getTime();
 
       resultado = resultado.filter(item => {
-        const rawDate = item.fecha_hora_comprobante || item.created_at || item.fecha;
+        const rawDate = item.fecha_hora_comprobante || item.fecha_hora_input || item.created_at || item.fecha;
         if (!rawDate) return true;
         const itemMs = new Date(rawDate).getTime();
         return !isNaN(itemMs) ? itemMs >= startMs : true;
@@ -61,7 +68,7 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
       const endMs = endObj.getTime();
 
       resultado = resultado.filter(item => {
-        const rawDate = item.fecha_hora_comprobante || item.created_at || item.fecha;
+        const rawDate = item.fecha_hora_comprobante || item.fecha_hora_input || item.created_at || item.fecha;
         if (!rawDate) return true;
         const itemMs = new Date(rawDate).getTime();
         return !isNaN(itemMs) ? itemMs <= endMs : true;
@@ -82,8 +89,8 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
     }
 
     // B) Orden por Fecha
-    const msA = new Date(a.fecha_hora_comprobante || 0).getTime();
-    const msB = new Date(b.fecha_hora_comprobante || 0).getTime();
+    const msA = new Date(a.fecha_hora_comprobante || a.fecha_hora_input || 0).getTime();
+    const msB = new Date(b.fecha_hora_comprobante || b.fecha_hora_input || 0).getTime();
 
     if (criterioOrden === 'fecha_asc') {
       return msA - msB; // Antiguos primero (Ascendente)
