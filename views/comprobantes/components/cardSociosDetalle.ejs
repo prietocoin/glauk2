@@ -1,7 +1,7 @@
 <!-- ================================================================= -->
 <!-- COMPONENTE: cardSociosDetalle.ejs                                 -->
-<!-- UBICACIÓN: views/comprobantes/components/                          -->
-<!-- RESPONSABILIDAD: Muestra Socio 1, Socio 2, Tasas T1/T2 y Montos    -->
+<!-- UBICACIÓN: views/comprobantes/components/                         -->
+<!-- RESPONSABILIDAD: Muestra Socio 1, Socio 2, Badges, Tasas y Montos -->
 <!-- ================================================================= -->
 
 <div class="bg-[#030611] rounded-xl border border-blue-900/50 p-2 space-y-1">
@@ -10,14 +10,25 @@
   <div class="grid grid-cols-12 items-center text-xs gap-1"
        x-data="{ 
          s1Nombre: item.socio_1 || item.nombre_socio_1 || item.socio || item.titular || 'GENERAL',
+         get s1Badge() {
+           if (item.badge_1) return item.badge_1;
+           const sObj = (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s1Nombre).trim().toUpperCase());
+           if (typeof obtenerInsigniaRol === 'function') return obtenerInsigniaRol(sObj?.rol);
+           return sObj?.rol === 'ADMIN' ? '💎' : (sObj?.rol === 'ASESOR' ? '👔' : (sObj?.rol === 'PROVEEDOR' ? '🏦' : '🤝'));
+         },
          get s1Moneda() {
            if (item.moneda_base_socio1) return item.moneda_base_socio1;
            const sObj = (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s1Nombre).trim().toUpperCase());
            return sObj?.moneda_base || sObj?.moneda_socio || sObj?.moneda || 'USDT';
          }
        }">
-    <span class="col-span-4 font-black text-cyan-300 uppercase truncate text-[11px]" 
-          x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s1Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s1Nombre"></span>
+    
+    <!-- Nombre con Micro-Insignia de Rol -->
+    <div class="col-span-4 flex items-center gap-1 min-w-0">
+      <span class="text-[10px] shrink-0 select-none" x-text="s1Badge" :title="item.rol_1 || 'ROL'"></span>
+      <span class="font-black text-cyan-300 uppercase truncate text-[11px]" 
+            x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s1Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s1Nombre"></span>
+    </div>
     
     <!-- Tasa 1 procesada -->
     <div class="col-span-3 text-center">
@@ -35,14 +46,25 @@
     <div class="grid grid-cols-12 items-center text-xs gap-1 border-t border-blue-900/40 pt-1"
          x-data="{ 
            s2Nombre: item.socio_2 || item.nombre_socio_2,
+           get s2Badge() {
+             if (item.badge_2) return item.badge_2;
+             const sObj = (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s2Nombre).trim().toUpperCase());
+             if (typeof obtenerInsigniaRol === 'function') return obtenerInsigniaRol(sObj?.rol);
+             return sObj?.rol === 'ADMIN' ? '💎' : (sObj?.rol === 'ASESOR' ? '👔' : (sObj?.rol === 'PROVEEDOR' ? '🏦' : '🤝'));
+           },
            get s2Moneda() {
              if (item.moneda_base_socio2) return item.moneda_base_socio2;
              const sObj = (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s2Nombre).trim().toUpperCase());
              return sObj?.moneda_base || sObj?.moneda_socio || sObj?.moneda || 'USDT';
            }
          }">
-      <span class="col-span-4 font-black text-pink-300 uppercase truncate text-[11px]" 
-            x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s2Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s2Nombre"></span>
+      
+      <!-- Nombre con Micro-Insignia de Rol -->
+      <div class="col-span-4 flex items-center gap-1 min-w-0">
+        <span class="text-[10px] shrink-0 select-none" x-text="s2Badge" :title="item.rol_2 || 'ROL'"></span>
+        <span class="font-black text-pink-300 uppercase truncate text-[11px]" 
+              x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s2Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s2Nombre"></span>
+      </div>
       
       <!-- Tasa 2 procesada -->
       <div class="col-span-3 text-center">
