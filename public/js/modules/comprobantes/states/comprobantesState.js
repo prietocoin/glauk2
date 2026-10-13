@@ -1,9 +1,6 @@
 /**
- * =================================================================
  * @file comprobantesState.js
- * @path public/js/modules/comprobantes/states/comprobantesState.js
- * @description Estado reactivo puro Alpine.js sin dependencias rotas.
- * =================================================================
+ * @description Estado reactivo Alpine.js con soporte atómico de Infinite Scroll y tope DOM (200 cards max).
  */
 
 import { 
@@ -16,22 +13,27 @@ import {
   calcularMovimientoFiltradoTotal 
 } from '../services/saldosCalculatorService.js';
 
-import { obtenerComprobantes } from '../services/comprobantesLecturaService.js';
+import { fetchComprobantesPaginados } from '../services/comprobantesApiService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
-import { prepararEdicionComprobante } from '../services/comprobantesMapperService.js';
+import { prepararEdicionComprobante, obtenerInsigniaRol } from '../services/comprobantesMapperService.js';
 import { filtrarComprobantesAtómico } from '../services/comprobantesFilterService.js';
 import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/comprobantesSaldosService.js';
 
 export function comprobantesState() {
   const state = {
-    // 1. ESTADO REACTIVO PURO
+    // 1. ESTADO REACTIVO Y CONTROLES DE PAGINACIÓN
     items: [], 
     comprobantes: [], 
     directorio: [], 
-    cargando: true, 
+    cargando: false, 
+    hayMasDatos: true,
+    paginaActual: 1,
+    limitePorPagina: 20,
+    capMaximoDOM: 200,
+
     modalAbierto: false, 
     itemEdicion: null,
-    loteActivo: 'T052',
+    loteActivo: 'T070',
 
     filtroRol: '', 
     filtroSocio: '', 
@@ -43,10 +45,10 @@ export function comprobantesState() {
     filtroHash: '', 
     saldoAnterior: 0,
 
-    // 2. HELPER EXPORTE PARA LA VISTA
     obtenerSujetoAuditado,
+    obtenerInsigniaRol,
 
-    // 3. CÁLCULOS RESTANTES DELEGADOS
+    // 2. CÁLCULOS REACTIVOS
     get movimientoFiltradoTotal() {
       return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
     },
@@ -61,34 +63,50 @@ export function comprobantesState() {
       });
     },
 
-    // 4. CICLO DE VIDA
+    // 3. CICLO DE VIDA E INFINITE SCROLL
     init() {
-      this.$nextTick(() => this.cargarComprobantes());
+      this.$nextTick(() => {
+        this.resetearYRefrescar();
+        this.iniciarObserverScrollInfinito();
+      });
     },
 
     actualizarSocioSeleccionado() {
       this.saldoAnterior = obtenerSaldoAnteriorSocio(this.directorio, this.filtroSocio);
-      this.cargarComprobantes();
+      this.resetearYRefrescar();
     },
 
-    async cargarComprobantes(silencioso = false) {
-      if (!silencioso) this.cargando = true;
+    resetearYRefrescar() {
+      this.items = [];
+      this.comprobantes = [];
+      this.paginaActual = 1;
+      this.hayMasDatos = true;
+      this.cargarSiguientePagina();
+    },
+
+    // 🟢 CARGA PAGINADA CON CAP MÁXIMO DE 200 ELEMENTOS EN DOM
+    async cargarSiguientePagina() {
+      if (this.cargando || !this.hayMasDatos) return;
+      this.cargando = true;
 
       const params = {
+        page: this.paginaActual,
+        limit: this.limitePorPagina,
         socio: this.filtroSocio, 
         rol: this.filtroRol,
         fechaInicio: this.filtroFechaInicio, 
-        fechaFin: this.filtroFechaFin,
-        desdeHash: this.filtroDesdeHash, 
-        hastaHash: this.filtroHastaHash,
-        hash: this.filtroHash, 
-        orden: this.filtroOrden
+        fechaFin: this.filtroFechaFin
       };
 
-      const raw = await obtenerComprobantes(params);
+      const raw = await fetchComprobantesPaginados(params);
+      
+      if (!Array.isArray(raw) || raw.length < this.limitePorPagina) {
+        this.hayMasDatos = false;
+      }
+
       const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-      const resultadoFinal = filtrarComprobantesAtómico(mapeados, this.directorio, {
+      const filtrados = filtrarComprobantesAtómico(mapeados, this.directorio, {
         filtroSocio: this.filtroSocio,
         filtroFechaInicio: this.filtroFechaInicio,
         filtroFechaFin: this.filtroFechaFin,
@@ -96,16 +114,33 @@ export function comprobantesState() {
         filtroOrden: this.filtroOrden
       });
 
-      this.items = resultadoFinal;
-      this.comprobantes = resultadoFinal;
+      // Acumular respetando el CAP de 200 elementos
+      let acumulados = [...this.items, ...filtrados];
+      if (acumulados.length > this.capMaximoDOM) {
+        acumulados = acumulados.slice(acumulados.length - this.capMaximoDOM);
+      }
+
+      this.items = acumulados;
+      this.comprobantes = acumulados;
+      this.paginaActual++;
       this.cargando = false;
     },
 
-    // 5. FORMATEADORES
+    iniciarObserverScrollInfinito() {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
+          this.cargarSiguientePagina();
+        }
+      }, { rootMargin: '200px' });
+
+      const sentinel = document.getElementById('sentinel-scroll');
+      if (sentinel) observer.observe(sentinel);
+    },
+
+    // 4. FORMATEADORES EXPORTADOS
     formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia, formatDiaHora
   };
 
-  // Asignamos las acciones del modal
   Object.assign(state, crearAccionesModal(state));
 
   return state;
