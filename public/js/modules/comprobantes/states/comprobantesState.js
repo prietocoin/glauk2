@@ -13,7 +13,7 @@ import {
   calcularMovimientoFiltradoTotal 
 } from '../services/saldosCalculatorService.js';
 
-import { fetchComprobantesPaginados } from '../services/comprobantesApiService.js';
+import { fetchComprobantesPaginados, eliminarComprobantePorHash } from '../services/comprobantesApiService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante, obtenerInsigniaRol } from '../services/comprobantesMapperService.js';
 import { filtrarComprobantesAtómico } from '../services/comprobantesFilterService.js';
@@ -112,6 +112,7 @@ export function comprobantesState() {
 
         const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
 
+        // Aplica cortafuegos de 2 socios obligatorios (x2)
         const filtrados = filtrarComprobantesAtómico(mapeados, this.directorio, {
           filtroSocio: this.filtroSocio,
           filtroFechaInicio: this.filtroFechaInicio,
@@ -129,6 +130,13 @@ export function comprobantesState() {
         this.items = acumulados;
         this.comprobantes = acumulados;
         this.paginaActual++;
+
+        // 🟢 AUTO-REFILL: Si el filtro descartó basuras y la pantalla quedó con pocos ítems, pedir la siguiente página
+        if (this.items.length < 10 && this.hayMasDatos) {
+          this.cargando = false;
+          return this.cargarSiguientePagina();
+        }
+
       } catch (err) {
         console.error('❌ Error al cargar página de comprobantes:', err);
       } finally {
@@ -145,6 +153,35 @@ export function comprobantesState() {
 
       const sentinel = document.getElementById('sentinel-scroll');
       if (sentinel) observer.observe(sentinel);
+    },
+
+    // 🟢 ELIMINACIÓN ATÓMICA DE TARJETAS
+    async eliminarComprobante(identificador) {
+      if (!identificador) return;
+
+      if (!confirm('¿Confirmas que deseas eliminar este comprobante?')) {
+        return;
+      }
+
+      const idStr = String(identificador).trim();
+
+      try {
+        await eliminarComprobantePorHash(idStr);
+      } catch (err) {
+        console.error('❌ Error al eliminar en API:', err);
+      } finally {
+        // Remoción inmediata en interfaz reactiva
+        this.items = this.items.filter(item => {
+          return (
+            String(item.hash_largo || '') !== idStr &&
+            String(item.hash || '') !== idStr &&
+            String(item.id || '') !== idStr &&
+            String(item._id || '') !== idStr &&
+            String(item.referencia || '') !== idStr
+          );
+        });
+        this.comprobantes = [...this.items];
+      }
     },
 
     // 4. FORMATEADORES EXPORTADOS
