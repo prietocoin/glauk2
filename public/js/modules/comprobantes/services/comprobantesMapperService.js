@@ -1,6 +1,6 @@
 /**
  * @file comprobantesMapperService.js
- * @description Mapeador atómico para transformaciones de tarjetas, roles e insignias.
+ * @description Mapeador atómico para transformaciones de tarjetas, roles, imágenes R2 e insignias.
  */
 
 function truncarTasaComercial(val) {
@@ -54,6 +54,9 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
   const calcM1 = Math.abs(parseFloat(rawM1) || 0).toFixed(2);
   const calcM2 = Math.abs(parseFloat(rawM2) || 0).toFixed(2);
 
+  // 🟢 EXTRACCIÓN DEFENSIVA DE LA IMAGEN EN CLOUDFLARE R2
+  const rawImg = c.link_img || c.url_r2_comprobante || c.link_r2 || c.url_imagen || c.url || '';
+
   return {
     ...c,
     hash_largo: c.hash_largo || '',
@@ -61,6 +64,10 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
     referencia: (c.referencia && c.referencia !== '-') ? c.referencia : 'N/A',
     titular: (c.titular && c.titular !== '-') ? c.titular : 'TITULAR NO DEFINIDO',
     
+    // IMAGEN DE CLOUDFLARE R2
+    link_img: rawImg,
+    url_r2_comprobante: rawImg,
+
     // Nombres y Roles mapeados con insignias
     nombre_socio_1: socio1Real,
     socio_1: socio1Real,
