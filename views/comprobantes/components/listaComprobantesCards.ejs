@@ -6,22 +6,22 @@
 
 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-5">
   
-  <!-- BUCLE VINCULADO A ITEMS (CÁPULA MÁXIMA 200 EN DOM) -->
-  <template x-for="(item, index) in items" :key="item.hash_largo || item.hash_corto || index">
+  <!-- 🟢 BUCLE CON KEY BLINDADA PARA EVITAR ERRORES DE ALPINE -->
+  <template x-for="(item, index) in items" :key="(item.hash_largo || item.comprobante?.hash_largo || item.referencia || item.comprobante?.referencia || 'item-') + index">
     
     <div class="bg-[#060c24] border border-[#16224f] hover:border-cyan-500/40 rounded-2xl p-3 md:p-4 shadow-xl flex flex-col justify-between gap-2.5 transition-all relative">
       <%- include('./cardHeader.ejs') %>
       <%- include('./cardSociosDetalle.ejs') %>
       
-      <!-- CUERPO PRINCIPAL CON IMAGEN Y BADGES -->
-      <div class="grid grid-cols-12 gap-2 items-center">
-        <!-- IMAGEN R2 DE CLOUDFLARE (7 COLUMNAS) -->
-        <div class="col-span-7">
+      <!-- CUERPO DE LA CARD: IMAGEN Y DETALLES -->
+      <div class="grid grid-cols-12 gap-2 items-stretch">
+        <!-- IMAGEN CLOUDFLARE R2 (6 COLUMNAS) -->
+        <div class="col-span-6">
           <%- include('./cardImagen.ejs') %>
         </div>
         
-        <!-- DETALLES Y BADGES FOOTER (5 COLUMNAS) -->
-        <div class="col-span-5 flex flex-col justify-between h-full space-y-1">
+        <!-- DETALLES Y ACCIONES (6 COLUMNAS) -->
+        <div class="col-span-6 flex flex-col justify-between">
           <%- include('./cardFooterBadges.ejs') %>
         </div>
       </div>
@@ -31,7 +31,7 @@
 
 </div>
 
-<!-- 🟢 CENTINELA OBSERVER PARA CARGA INFINITA EN TANDAS DE 20 -->
+<!-- 🟢 CENTINELA PARA INFINITE SCROLL (LOTES DE 20) -->
 <div id="sentinel-scroll" class="w-full py-8 flex justify-center items-center">
   <template x-if="cargando">
     <div class="flex items-center gap-2 text-cyan-400 text-xs font-mono animate-pulse bg-slate-900/80 px-4 py-2 rounded-full border border-cyan-500/30">
@@ -39,10 +39,4 @@
       <span>Cargando más comprobantes...</span>
     </div>
   </template>
-</div>
-
-<!-- TEST DE CONTROL DE MODAL -->
-<div x-show="modalAbierto" style="position:fixed; top:20px; right:20px; z-index:99999; background:red; color:white; padding:20px; border-radius:10px;">
-  🚨 MODAL PRUEBA ACTIVO
-  <button @click="modalAbierto = false" style="background:black; color:white; padding:5px;">Cerrar</button>
 </div>
