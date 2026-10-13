@@ -44,9 +44,11 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
   let horaFmt = 'S/F';
 
   if (rawFechaStr) {
-    // A) Intentar Parseo como Timestamp/ISO
-    const d = new Date(rawFechaStr);
-    if (!isNaN(d.getTime())) {
+    // A) Intentar Parseo como Timestamp o Date ISO/SQL
+    const timestamp = typeof rawFechaStr === 'number' ? rawFechaStr : Date.parse(rawFechaStr);
+    
+    if (!isNaN(timestamp)) {
+      const d = new Date(timestamp);
       const tzOffset = d.getTimezoneOffset() * 60000;
       const localDate = new Date(d.getTime() - tzOffset);
       const isoStr = localDate.toISOString();
@@ -55,16 +57,16 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
       fechaFmt = isoStr.slice(0, 10); // YYYY-MM-DD
       horaFmt = isoStr.slice(11, 19); // HH:MM:SS
     } else {
-      // B) Fallback para cadenas de texto directas (ej. "14 oct 2024 - 10:11")
+      // B) Fallback para cadenas de texto directas de OCR (ej. "14/10/2024 10:11:00")
       const partes = rawFechaStr.split(/[-_T ]+/);
       if (partes.length >= 1) fechaFmt = partes[0];
       if (partes.length >= 2) horaFmt = partes.slice(1).join(' ');
     }
   }
 
-  // 🟢 2. EXTRACCIÓN Y PARSEO DE HASH
-  const hashLargoFinal = c.hash_largo || c.hash || c.hash_corto || c.referencia || '';
-  const hashCortoFinal = c.hash_corto || (hashLargoFinal ? String(hashLargoFinal).replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase() : 'HASH');
+  // 🟢 2. EXTRACCIÓN Y PARSEO DE HASH / IDENTIFICADOR
+  const idUnico = c.hash_largo || c.hash || c.id || c._id || c.referencia || '';
+  const hashCortoFinal = c.hash_corto || (idUnico ? String(idUnico).replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase() : 'HASH');
 
   const fallbackMonto = Math.abs(parseFloat(c.monto || c.monto_local || 0)) || 0;
 
@@ -95,7 +97,8 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
     fecha_hora_input: dateInput,
     fecha_hora_comprobante: rawFechaStr,
 
-    hash_largo: hashLargoFinal,
+    hash_largo: idUnico,
+    id: idUnico,
     hash_corto: hashCortoFinal,
 
     banco: (c.banco && c.banco !== '-') ? c.banco : 'BANCO',
