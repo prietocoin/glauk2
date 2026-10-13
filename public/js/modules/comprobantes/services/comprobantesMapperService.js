@@ -26,14 +26,26 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
 
   const c = item.comprobante || item;
 
-  // 1. EXTRACCIÓN Y FORMATEO DEFENSIVO DE FECHA Y HORA
-  const rawDateStr = c.fecha_hora_input || c.fecha_hora_comprobante || c.fecha_comprobante || c.fecha || c.created_at || '';
+  // 🟢 1. EXTRACCIÓN Y PARSEO MULTI-CLAVE DE FECHA Y HORA
+  const rawFechaStr = String(
+    c.fecha_hora_comprobante || 
+    c.fecha_hora_input || 
+    c.fecha_hora || 
+    c.fecha_proceso || 
+    c.fecha_operacion || 
+    c.fecha_comprobante || 
+    c.fecha || 
+    c.created_at || 
+    c.timestamp || ''
+  ).trim();
+
   let dateInput = '';
   let fechaFmt = 'S/F';
   let horaFmt = 'S/F';
 
-  if (rawDateStr) {
-    const d = new Date(rawDateStr);
+  if (rawFechaStr) {
+    // A) Intentar Parseo como Timestamp/ISO
+    const d = new Date(rawFechaStr);
     if (!isNaN(d.getTime())) {
       const tzOffset = d.getTimezoneOffset() * 60000;
       const localDate = new Date(d.getTime() - tzOffset);
@@ -42,10 +54,15 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
       dateInput = isoStr.slice(0, 16);
       fechaFmt = isoStr.slice(0, 10); // YYYY-MM-DD
       horaFmt = isoStr.slice(11, 19); // HH:MM:SS
+    } else {
+      // B) Fallback para cadenas de texto directas (ej. "14 oct 2024 - 10:11")
+      const partes = rawFechaStr.split(/[-_T ]+/);
+      if (partes.length >= 1) fechaFmt = partes[0];
+      if (partes.length >= 2) horaFmt = partes.slice(1).join(' ');
     }
   }
 
-  // 2. EXTRACCIÓN DEFENSIVA DEL HASH
+  // 🟢 2. EXTRACCIÓN Y PARSEO DE HASH
   const hashLargoFinal = c.hash_largo || c.hash || c.hash_corto || c.referencia || '';
   const hashCortoFinal = c.hash_corto || (hashLargoFinal ? String(hashLargoFinal).replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase() : 'HASH');
 
@@ -67,18 +84,19 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
   const calcM1 = Math.abs(parseFloat(rawM1) || 0).toFixed(2);
   const calcM2 = Math.abs(parseFloat(rawM2) || 0).toFixed(2);
 
-  // 🟢 EXTRACCIÓN DEFENSIVA DE LA IMAGEN EN CLOUDFLARE R2
+  // EXTRACCIÓN DEFENSIVA DE LA IMAGEN EN CLOUDFLARE R2
   const rawImg = c.link_img || c.url_r2_comprobante || c.link_r2 || c.url_imagen || c.url || '';
 
   return {
     ...c,
-    // HASH Y FECHAS PARSEADAS
-    hash_largo: hashLargoFinal,
-    hash_corto: hashCortoFinal,
+    // METADATOS PARSEADOS
     fecha_fmt: fechaFmt,
     hora_fmt: horaFmt,
     fecha_hora_input: dateInput,
-    fecha_hora_comprobante: rawDateStr,
+    fecha_hora_comprobante: rawFechaStr,
+
+    hash_largo: hashLargoFinal,
+    hash_corto: hashCortoFinal,
 
     banco: (c.banco && c.banco !== '-') ? c.banco : 'BANCO',
     referencia: (c.referencia && c.referencia !== '-') ? c.referencia : 'N/A',
