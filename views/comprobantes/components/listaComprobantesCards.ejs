@@ -6,32 +6,22 @@
 
 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-5">
   
-  <!-- 🟢 BUCLE CON KEY BLINDADA PARA EVITAR ERRORES DE ALPINE -->
+  <!-- BUCLE VINCULADO A ITEMS -->
   <template x-for="(item, index) in items" :key="(item.hash_largo || item.comprobante?.hash_largo || item.referencia || item.comprobante?.referencia || 'item-') + index">
     
     <div class="bg-[#060c24] border border-[#16224f] hover:border-cyan-500/40 rounded-2xl p-3 md:p-4 shadow-xl flex flex-col justify-between gap-2.5 transition-all relative">
       <%- include('./cardHeader.ejs') %>
       <%- include('./cardSociosDetalle.ejs') %>
       
-      <!-- CUERPO DE LA CARD: IMAGEN Y DETALLES -->
-      <div class="grid grid-cols-12 gap-2 items-stretch">
-        <!-- IMAGEN CLOUDFLARE R2 (6 COLUMNAS) -->
-        <div class="col-span-6">
-          <%- include('./cardImagen.ejs') %>
-        </div>
-        
-        <!-- DETALLES Y ACCIONES (6 COLUMNAS) -->
-        <div class="col-span-6 flex flex-col justify-between">
-          <%- include('./cardFooterBadges.ejs') %>
-        </div>
-      </div>
-
+      <!-- CUERPO UNIFICADO: IMAGEN (60%) + METADATOS Y ACCIONES (40%) -->
+      <%- include('./cardFooterBadges.ejs') %>
     </div>
+
   </template>
 
 </div>
 
-<!-- 🟢 CENTINELA PARA INFINITE SCROLL (LOTES DE 20) -->
+<!-- CENTINELA SCROLL INFINITO (LOTES DE 20) -->
 <div id="sentinel-scroll" class="w-full py-8 flex justify-center items-center">
   <template x-if="cargando">
     <div class="flex items-center gap-2 text-cyan-400 text-xs font-mono animate-pulse bg-slate-900/80 px-4 py-2 rounded-full border border-cyan-500/30">
