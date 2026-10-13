@@ -76,12 +76,17 @@ export function comprobantesState() {
       this.resetearYRefrescar();
     },
 
+    // 🟢 ALIAS REQUERIDO POR VISTAS / EVENTOS EJS
+    async cargarComprobantes(silencioso = false) {
+      return this.resetearYRefrescar();
+    },
+
     resetearYRefrescar() {
       this.items = [];
       this.comprobantes = [];
       this.paginaActual = 1;
       this.hayMasDatos = true;
-      this.cargarSiguientePagina();
+      return this.cargarSiguientePagina();
     },
 
     // 🟢 CARGA PAGINADA CON CAP MÁXIMO DE 200 ELEMENTOS EN DOM
@@ -98,32 +103,37 @@ export function comprobantesState() {
         fechaFin: this.filtroFechaFin
       };
 
-      const raw = await fetchComprobantesPaginados(params);
-      
-      if (!Array.isArray(raw) || raw.length < this.limitePorPagina) {
-        this.hayMasDatos = false;
+      try {
+        const raw = await fetchComprobantesPaginados(params);
+        
+        if (!Array.isArray(raw) || raw.length < this.limitePorPagina) {
+          this.hayMasDatos = false;
+        }
+
+        const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
+
+        const filtrados = filtrarComprobantesAtómico(mapeados, this.directorio, {
+          filtroSocio: this.filtroSocio,
+          filtroFechaInicio: this.filtroFechaInicio,
+          filtroFechaFin: this.filtroFechaFin,
+          filtroHash: this.filtroHash,
+          filtroOrden: this.filtroOrden
+        });
+
+        // Acumular respetando el CAP de 200 elementos
+        let acumulados = [...this.items, ...filtrados];
+        if (acumulados.length > this.capMaximoDOM) {
+          acumulados = acumulados.slice(acumulados.length - this.capMaximoDOM);
+        }
+
+        this.items = acumulados;
+        this.comprobantes = acumulados;
+        this.paginaActual++;
+      } catch (err) {
+        console.error('❌ Error al cargar página de comprobantes:', err);
+      } finally {
+        this.cargando = false;
       }
-
-      const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
-
-      const filtrados = filtrarComprobantesAtómico(mapeados, this.directorio, {
-        filtroSocio: this.filtroSocio,
-        filtroFechaInicio: this.filtroFechaInicio,
-        filtroFechaFin: this.filtroFechaFin,
-        filtroHash: this.filtroHash,
-        filtroOrden: this.filtroOrden
-      });
-
-      // Acumular respetando el CAP de 200 elementos
-      let acumulados = [...this.items, ...filtrados];
-      if (acumulados.length > this.capMaximoDOM) {
-        acumulados = acumulados.slice(acumulados.length - this.capMaximoDOM);
-      }
-
-      this.items = acumulados;
-      this.comprobantes = acumulados;
-      this.paginaActual++;
-      this.cargando = false;
     },
 
     iniciarObserverScrollInfinito() {
