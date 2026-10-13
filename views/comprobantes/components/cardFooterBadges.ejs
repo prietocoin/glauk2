@@ -4,22 +4,37 @@
 <!-- RESPONSABILIDAD: Recibo R2 (60% ancho), badges/metadatos (40%)    -->
 <!-- ================================================================= -->
 
-<div class="flex items-stretch gap-2 h-52 sm:h-60 md:h-64 relative">
+<div class="flex items-stretch gap-2 h-52 sm:h-60 md:h-64 relative"
+     x-data="{
+       get urlRecibo() {
+         return item.link_img || item.url_r2_comprobante || item.url_r2 || item.url_imagen || item.comprobante?.link_img || '';
+       }
+     }">
   
-<!-- VISOR DE IMAGEN R2 -->
-<div class="w-[60%] shrink-0 bg-[#010309] border border-blue-900/60 rounded-xl overflow-hidden p-1 flex items-center justify-center relative group">
-  <a :href="item.url_r2 || item.url_imagen" 
-     target="_blank" 
-     class="w-full h-full flex items-center justify-center cursor-pointer" 
-     title="Ver recibo original en pantalla completa">
-    <template x-if="item.url_r2 || item.url_imagen">
-      <img :src="item.url_r2 || item.url_imagen" class="w-full h-full object-contain rounded-lg opacity-90 group-hover:opacity-100 transition-opacity" alt="Recibo">
+  <!-- VISOR DE IMAGEN R2 (60% Ancho) -->
+  <div class="w-[60%] shrink-0 bg-[#010309] border border-blue-900/60 rounded-xl overflow-hidden p-1 flex items-center justify-center relative group">
+    
+    <!-- 🟢 SI EXISTE RECIBO CLOUDFLARE R2 -->
+    <template x-if="urlRecibo">
+      <a :href="urlRecibo" 
+         target="_blank" 
+         class="w-full h-full flex items-center justify-center cursor-pointer" 
+         title="Ver recibo original en pantalla completa">
+        <img :src="urlRecibo" 
+             class="w-full h-full object-contain rounded-lg opacity-90 group-hover:opacity-100 transition-opacity" 
+             alt="Recibo Cloudflare R2"
+             @error="$el.style.display='none'; $el.parentElement.nextElementSibling.classList.remove('hidden')">
+      </a>
     </template>
-    <template x-if="!item.url_r2 && !item.url_imagen">
-      <span class="text-[9px] text-slate-500 font-bold">📷 SIN IMAGEN</span>
-    </template>
-  </a>
-</div>
+
+    <!-- 🟢 FALLBACK SI NO VIENE RECIBO O FALLA LA CARGA -->
+    <div class="flex flex-col items-center justify-center gap-1 select-none"
+         :class="{ 'hidden': urlRecibo }">
+      <span class="text-base opacity-40">📷</span>
+      <span class="text-[9px] text-slate-500 font-bold font-mono">SIN IMAGEN</span>
+    </div>
+
+  </div>
 
   <!-- METADATOS, BADGES Y BOTONERA (40% restante) -->
   <div class="flex-1 min-w-0 flex flex-col justify-between gap-1 py-0.5 relative z-10">
@@ -83,7 +98,7 @@
       </template>
     </div>
 
-    <!-- 7. 🛠️ ACCIONES DE AUDITORÍA (CAPA Z-30 ELEVADA) -->
+    <!-- 7. 🛠️ ACCIONES DE AUDITORÍA -->
     <div class="flex justify-around items-center pt-1 border-t border-blue-900/40 relative z-30 pointer-events-auto">
       <button type="button" 
               @click.stop="eliminarComprobante(item.hash_largo)" 
@@ -93,10 +108,10 @@
       </button>
 
       <button type="button" 
-        @click.stop="$dispatch('abrir-modal-edicion', item)" 
-        class="p-1 text-slate-400 hover:text-cyan-400 transition-colors text-sm cursor-pointer" 
-        title="Auditar / Editar">
-  ✏️
+              @click.stop="$dispatch('abrir-modal-edicion', item)" 
+              class="p-1 text-slate-400 hover:text-cyan-400 transition-colors text-sm cursor-pointer" 
+              title="Auditar / Editar">
+        ✏️
       </button>
     </div>
 
