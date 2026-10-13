@@ -6,6 +6,20 @@
 const API_V2_URL = 'https://automat-gaukapi.fyi6ur.easypanel.host/api/v2/comprobantes';
 
 /**
+ * Normaliza y limpia el identificador para evitar URLs malformadas como /undefined
+ */
+function obtenerIdentificadorValido(identificador, fallbackPayload = {}) {
+  const target = identificador || 
+                 fallbackPayload?.hash_largo || 
+                 fallbackPayload?.hash || 
+                 fallbackPayload?.id || 
+                 fallbackPayload?._id || 
+                 fallbackPayload?.referencia || '';
+
+  return String(target).trim();
+}
+
+/**
  * Carga paginada de comprobantes
  */
 export async function fetchComprobantesPaginados(params = {}) {
@@ -34,15 +48,21 @@ export async function fetchComprobantesPaginados(params = {}) {
 /**
  * Guarda cambios de un comprobante editado
  */
-export async function guardarCambiosComprobante(hashLargo, payload, loteActivo = 'T070') {
+export async function guardarCambiosComprobante(hashLargo, payload = {}, loteActivo = 'T070') {
   try {
-    const res = await fetch(`${API_V2_URL}/${hashLargo || payload?.hash_largo}`, {
+    const idValido = obtenerIdentificadorValido(hashLargo, payload);
+    if (!idValido) {
+      throw new Error('No se proporcionó un hash o ID válido para actualizar');
+    }
+
+    const res = await fetch(`${API_V2_URL}/${encodeURIComponent(idValido)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...payload, loteActivo })
     });
+
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-    return true;
+    return await res.json().catch(() => true);
   } catch (err) {
     console.error('[comprobantesApiService ❌ Save Error]:', err.message);
     return false;
@@ -54,12 +74,18 @@ export async function guardarCambiosComprobante(hashLargo, payload, loteActivo =
  */
 export async function solicitarRelecturaIA(hashLargo) {
   try {
-    const res = await fetch(`${API_V2_URL}/${hashLargo}/releer-ia`, {
+    const idValido = obtenerIdentificadorValido(hashLargo);
+    if (!idValido) {
+      throw new Error('No se proporcionó un hash o ID válido para releer con IA');
+    }
+
+    const res = await fetch(`${API_V2_URL}/${encodeURIComponent(idValido)}/releer-ia`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
+
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-    return true;
+    return await res.json().catch(() => true);
   } catch (err) {
     console.error('[comprobantesApiService ❌ IA Re-read Error]:', err.message);
     return false;
@@ -67,14 +93,20 @@ export async function solicitarRelecturaIA(hashLargo) {
 }
 
 /**
- * Elimina un comprobante por su hash
+ * Elimina un comprobante por su hash o ID
  */
 export async function eliminarComprobantePorHash(hashLargo) {
   try {
-    const res = await fetch(`${API_V2_URL}/${hashLargo}`, {
+    const idValido = obtenerIdentificadorValido(hashLargo);
+    if (!idValido) {
+      throw new Error('No se proporcionó un hash o ID válido para eliminar');
+    }
+
+    const res = await fetch(`${API_V2_URL}/${encodeURIComponent(idValido)}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' }
     });
+
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
     return true;
   } catch (err) {
