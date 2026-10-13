@@ -32,18 +32,53 @@ export async function fetchComprobantesPaginados(params = {}) {
 }
 
 /**
- * Eliminación de un comprobante por su hash (requerido por comprobantesModalActions.js)
+ * Guarda cambios de un comprobante editado
  */
-export async function eliminarComprobantePorHash(hash) {
+export async function guardarCambiosComprobante(hashLargo, payload, loteActivo = 'T070') {
   try {
-    const res = await fetch(`${API_V2_URL}/${hash}`, {
+    const res = await fetch(`${API_V2_URL}/${hashLargo || payload?.hash_largo}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, loteActivo })
+    });
+    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+    return true;
+  } catch (err) {
+    console.error('[comprobantesApiService ❌ Save Error]:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Solicita relectura con IA
+ */
+export async function solicitarRelecturaIA(hashLargo) {
+  try {
+    const res = await fetch(`${API_V2_URL}/${hashLargo}/releer-ia`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+    return true;
+  } catch (err) {
+    console.error('[comprobantesApiService ❌ IA Re-read Error]:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Elimina un comprobante por su hash
+ */
+export async function eliminarComprobantePorHash(hashLargo) {
+  try {
+    const res = await fetch(`${API_V2_URL}/${hashLargo}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' }
     });
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-    return await res.json();
+    return true;
   } catch (err) {
     console.error('[comprobantesApiService ❌ Delete Error]:', err.message);
-    return { success: false, error: err.message };
+    return false;
   }
 }
