@@ -12,9 +12,11 @@
          s1Nombre: item.socio_1 || item.nombre_socio_1 || item.socio || item.titular || 'GENERAL',
          get s1Badge() {
            if (item.badge_1) return item.badge_1;
-           const sObj = (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s1Nombre).trim().toUpperCase());
-           if (typeof obtenerInsigniaRol === 'function') return obtenerInsigniaRol(sObj?.rol);
-           return sObj?.rol === 'ADMIN' ? '💎' : (sObj?.rol === 'ASESOR' ? '👔' : (sObj?.rol === 'PROVEEDOR' ? '🏦' : '🤝'));
+           const rol = (item.rol_1 || (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s1Nombre).trim().toUpperCase())?.rol || '').toUpperCase();
+           if (rol === 'ADMIN') return '💎';
+           if (rol === 'ASESOR') return '👔';
+           if (rol === 'PROVEEDOR') return '🏦';
+           return '🤝';
          },
          get s1Moneda() {
            if (item.moneda_base_socio1) return item.moneda_base_socio1;
@@ -25,7 +27,7 @@
     
     <!-- Nombre con Micro-Insignia de Rol -->
     <div class="col-span-4 flex items-center gap-1 min-w-0">
-      <span class="text-[10px] shrink-0 select-none" x-text="s1Badge" :title="item.rol_1 || 'ROL'"></span>
+      <span class="text-[10px] shrink-0 select-none" x-text="s1Badge"></span>
       <span class="font-black text-cyan-300 uppercase truncate text-[11px]" 
             x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s1Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s1Nombre"></span>
     </div>
@@ -48,9 +50,11 @@
            s2Nombre: item.socio_2 || item.nombre_socio_2,
            get s2Badge() {
              if (item.badge_2) return item.badge_2;
-             const sObj = (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s2Nombre).trim().toUpperCase());
-             if (typeof obtenerInsigniaRol === 'function') return obtenerInsigniaRol(sObj?.rol);
-             return sObj?.rol === 'ADMIN' ? '💎' : (sObj?.rol === 'ASESOR' ? '👔' : (sObj?.rol === 'PROVEEDOR' ? '🏦' : '🤝'));
+             const rol = (item.rol_2 || (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s2Nombre).trim().toUpperCase())?.rol || '').toUpperCase();
+             if (rol === 'ADMIN') return '💎';
+             if (rol === 'ASESOR') return '👔';
+             if (rol === 'PROVEEDOR') return '🏦';
+             return '🤝';
            },
            get s2Moneda() {
              if (item.moneda_base_socio2) return item.moneda_base_socio2;
@@ -61,7 +65,7 @@
       
       <!-- Nombre con Micro-Insignia de Rol -->
       <div class="col-span-4 flex items-center gap-1 min-w-0">
-        <span class="text-[10px] shrink-0 select-none" x-text="s2Badge" :title="item.rol_2 || 'ROL'"></span>
+        <span class="text-[10px] shrink-0 select-none" x-text="s2Badge"></span>
         <span class="font-black text-pink-300 uppercase truncate text-[11px]" 
               x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s2Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s2Nombre"></span>
       </div>
