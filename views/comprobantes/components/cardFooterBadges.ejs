@@ -101,7 +101,7 @@
     <!-- 7. 🛠️ ACCIONES DE AUDITORÍA -->
     <div class="flex justify-around items-center pt-1 border-t border-blue-900/40 relative z-30 pointer-events-auto">
       <button type="button" 
-              @click.stop="eliminarComprobante(item.hash_largo)" 
+              @click.stop="eliminarComprobante(item.hash_largo || item.hash || item.id || item._id || item.referencia)" 
               class="p-1 text-slate-400 hover:text-rose-400 transition-colors text-sm active:scale-95 cursor-pointer relative z-40" 
               title="Eliminar Comprobante">
         🗑️
