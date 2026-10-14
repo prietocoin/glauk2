@@ -1,6 +1,6 @@
 /**
  * @file comprobantesIaService.js
- * @description Encola la relectura mediante IA en BullMQ y actualiza estado_ia.
+ * @description Encola la relectura mediante IA en BullMQ y actualiza estado_ia tanto en comprobantes_raw como en comprobantes_final.
  */
 const { Queue } = require('bullmq');
 const db = require('#config/database');
@@ -12,12 +12,19 @@ async function releerIA(hashLargo) {
   const targetHash = String(hashLargo || '').trim();
   if (!targetHash) throw new Error('Hash no proporcionado.');
 
+  // 🟢 1. BUSCAR DATOS PRIMERO EN COMPROBANTES_FINAL Y LUEGO EN RAW COMO FALLBACK
   const { rows } = await db.query(`
-    SELECT c.hash_largo, c.creado_en, COALESCE(c.url_r2, i.url_imagen) AS url_r2, 
-           COALESCE(c.instancia, i.instancia, 'JAIRO') AS instancia, i.caption, i.timestamp_msg
-    FROM comprobantes_raw c
-    LEFT JOIN impactos_raw i ON LOWER(TRIM(c.hash_largo)) = LOWER(TRIM(i.hash_largo))
-    WHERE LOWER(TRIM(c.hash_largo)) = LOWER(TRIM($1))
+    SELECT 
+      f.hash_largo, 
+      COALESCE(f.fecha_hora_iso, c.creado_en) AS creado_en, 
+      COALESCE(f.url_r2_comprobante, c.url_r2, i.url_imagen) AS url_r2, 
+      COALESCE(c.instancia, i.instancia, 'JAIRO') AS instancia, 
+      i.caption, 
+      i.timestamp_msg
+    FROM comprobantes_final f
+    LEFT JOIN comprobantes_raw c ON LOWER(TRIM(c.hash_largo)) = LOWER(TRIM(f.hash_largo))
+    LEFT JOIN impactos_raw i ON LOWER(TRIM(i.hash_largo)) = LOWER(TRIM(f.hash_largo))
+    WHERE LOWER(TRIM(f.hash_largo)) = LOWER(TRIM($1))
     ORDER BY i.id ASC
     LIMIT 1;
   `, [targetHash]);
@@ -28,12 +35,20 @@ async function releerIA(hashLargo) {
 
   const comp = rows[0];
 
+  // 🟢 2. ACTUALIZAR ESTADO DE RE-PROCESAMIENTO EN COMPROBANTES_FINAL Y RAW
+  await db.query(`
+    UPDATE comprobantes_final 
+    SET estado_ia = 'RE-PROCESANDO', procesado_ia = false 
+    WHERE LOWER(TRIM(hash_largo)) = LOWER(TRIM($1));
+  `, [targetHash]);
+
   await db.query(`
     UPDATE comprobantes_raw 
     SET estado_ia = 'RE-PROCESANDO', procesado_ia = false 
     WHERE LOWER(TRIM(hash_largo)) = LOWER(TRIM($1));
   `, [targetHash]);
 
+  // 🟢 3. ENCOLAR TRABAJO EN BULLMQ
   await pipelineQueue.add('releer-ia', {
     hash_largo: comp.hash_largo,
     url_r2: comp.url_r2,
