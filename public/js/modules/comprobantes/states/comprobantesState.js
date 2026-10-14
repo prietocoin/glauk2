@@ -1,7 +1,6 @@
 /**
  * @file comprobantesState.js
- * @description Estado reactivo de Alpine.js - Glaukapi Dashboard.
- * Paginación fluida de 20 en 20 (máx 200), cortafuegos 2x y scroll por sondeo continuo.
+ * Solución definitiva de Infinite Scroll mediante escucha directa de eventos de interacción.
  */
 
 import { 
@@ -37,9 +36,8 @@ export function comprobantesState() {
   const { fechaInicio: inicioMes, fechaFin: finMes } = obtenerRangoMesActualCaracas();
 
   const state = {
-    // 1. ESTADO DE DATOS
-    todosLosItems: [],  // Catálogo completo filtrado desde la API
-    items: [],          // Ítems visibles en el DOM (20, 40, 60... máx 200)
+    todosLosItems: [],
+    items: [],
     directorio: [], 
     cargando: false, 
     hayMasDatos: true,
@@ -64,12 +62,10 @@ export function comprobantesState() {
     obtenerSujetoAuditado,
     obtenerInsigniaRol,
 
-    // ALIAS CRÍTICOS PARA PLANTILLAS EJS
     get comprobantes() {
       return this.items;
     },
 
-    // 2. MÉTRICAS REACTIVAS
     get movimientoFiltradoTotal() {
       return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
     },
@@ -84,7 +80,6 @@ export function comprobantesState() {
       });
     },
 
-    // 3. CICLO DE VIDA E INICIALIZACIÓN
     init() {
       this.$nextTick(() => {
         this.resetearYRefrescar();
@@ -109,13 +104,12 @@ export function comprobantesState() {
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 DOSIFICADOR DE SCROLL CORREGIDO (Mantiene activo hayMasDatos si restan elementos)
+    // 🟢 CARGA INCREMENTAL INFALIBLE
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
 
       try {
-        // A) Cargar buffer completo en la primera iteración
         if (this.todosLosItems.length === 0) {
           const params = {
             page: 1,
@@ -131,7 +125,7 @@ export function comprobantesState() {
 
           const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-          // Cortafuegos de 2 socios (x2)
+          // Cortafuegos atómico de 2 socios
           this.todosLosItems = mapeados.filter(item => {
             const s2 = String(item.nombre_socio_2 || item.socio_2 || item.grupo_2?.grupo || '').toUpperCase().trim();
             const es2xValido = s2 !== '' && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO';
@@ -145,7 +139,7 @@ export function comprobantesState() {
           return;
         }
 
-        // B) Incremento seguro (+20 tarjetas)
+        // Calcular nuevo lote (+20)
         const proximoLimite = Math.min(
           this.items.length + this.tamanoLote,
           this.capMaximoDOM,
@@ -154,51 +148,47 @@ export function comprobantesState() {
 
         this.items = this.todosLosItems.slice(0, proximoLimite);
 
-        // C) Evaluar estado final real
+        // Evaluar fin
         this.hayMasDatos = this.items.length < this.todosLosItems.length && this.items.length < this.capMaximoDOM;
 
       } catch (err) {
         console.error('❌ Error al cargar lote de comprobantes:', err);
       } finally {
-        this.cargando = false;
+        setTimeout(() => {
+          this.cargando = false;
+        }, 200);
       }
     },
 
-    // 🟢 DETECTOR DE SCROLL ULTRA-ROBUSTO (Eventos + Sondeo Polling + IntersectionObserver)
+    // 🟢 DISPARADOR DE CARGA POR INTERACCIÓN DIRECTA (RUEDA / TOUCH / SCROLL)
     iniciarEscuchadoresScroll() {
       this.$nextTick(() => {
-        const evaluarScroll = () => {
+        let debounceTimer;
+
+        const comprobarYForzarCarga = () => {
           if (this.cargando || !this.hayMasDatos) return;
 
-          const sentinel = document.getElementById('sentinel-scroll');
-          if (!sentinel) return;
-
-          const rect = sentinel.getBoundingClientRect();
-          const vh = window.innerHeight || document.documentElement.clientHeight;
-
-          if (rect.top <= vh + 600) {
-            this.cargarSiguientePagina();
-          }
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            // Si aún quedan tarjetas en el buffer por renderizar, las revelamos al usuario
+            if (this.items.length < this.todosLosItems.length && this.items.length < this.capMaximoDOM) {
+              this.cargarSiguientePagina();
+            }
+          }, 100);
         };
 
-        // Captura en ventana y contenedores
-        window.addEventListener('scroll', evaluarScroll, { passive: true });
-        document.addEventListener('scroll', evaluarScroll, { capture: true, passive: true });
+        // Escuchar la rueda del ratón (wheel) en cualquier parte de la pantalla
+        window.addEventListener('wheel', (e) => {
+          if (e.deltaY > 0) { // Si el usuario desplaza hacia abajo
+            comprobarYForzarCarga();
+          }
+        }, { passive: true });
 
-        // Sondeo activo continuo cada 300ms (fuerza la carga si el contenedor CSS aísla el evento scroll)
-        setInterval(evaluarScroll, 300);
+        // Escuchar desplazamiento en pantallas táctiles / móviles
+        window.addEventListener('touchmove', comprobarYForzarCarga, { passive: true });
 
-        // IntersectionObserver sobre el Viewport
-        const sentinel = document.getElementById('sentinel-scroll');
-        if (sentinel) {
-          const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
-              evaluarScroll();
-            }
-          }, { rootMargin: '500px' });
-
-          observer.observe(sentinel);
-        }
+        // Escuchar scroll nativo por si acaso
+        document.addEventListener('scroll', comprobarYForzarCarga, { capture: true, passive: true });
       });
     },
 
