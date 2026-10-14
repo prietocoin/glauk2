@@ -11,7 +11,8 @@
 
   obtenerTasaSocio(nombreSocio) {
     if (!nombreSocio || nombreSocio === 'GENERAL') return 1.0;
-    const sObj = (typeof directorio !== 'undefined' ? directorio : (typeof todosLosSocios !== 'undefined' ? todosLosSocios : [])).find(d => 
+    const lista = (typeof directorio !== 'undefined' ? directorio : (typeof todosLosSocios !== 'undefined' ? todosLosSocios : []));
+    const sObj = lista.find(d => 
       String(typeof d === 'object' ? d.nombre : d).trim().toUpperCase() === String(nombreSocio).trim().toUpperCase()
     );
     return parseFloat(sObj?.tasa || sObj?.tasa_base || 1.0) || 1.0;
@@ -19,7 +20,8 @@
 
   obtenerMonedaBaseSocio(nombreSocio) {
     if (!nombreSocio || nombreSocio === 'GENERAL') return 'USDT';
-    const sObj = (typeof directorio !== 'undefined' ? directorio : (typeof todosLosSocios !== 'undefined' ? todosLosSocios : [])).find(d => 
+    const lista = (typeof directorio !== 'undefined' ? directorio : (typeof todosLosSocios !== 'undefined' ? todosLosSocios : []));
+    const sObj = lista.find(d => 
       String(typeof d === 'object' ? d.nombre : d).trim().toUpperCase() === String(nombreSocio).trim().toUpperCase()
     );
     return sObj?.moneda_base || sObj?.moneda || 'USDT';
@@ -75,7 +77,7 @@
     };
 
     try {
-      const res = await fetch(`/api/v2/comprobantes/${encodeURIComponent(hashTarget)}`, {
+      const res = await fetch('/api/v2/comprobantes/' + encodeURIComponent(hashTarget), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -83,9 +85,7 @@
 
       if (!res.ok) throw new Error('Error al guardar en el servidor');
 
-      // 🟢 Disparar evento global para actualizar la card en la pantalla
       window.dispatchEvent(new CustomEvent('comprobante-actualizado', { detail: payload }));
-
       this.modalAbierto = false;
     } catch (err) {
       alert('⚠️ Error al congelar el comprobante: ' + err.message);
@@ -95,11 +95,11 @@
   }
 }" 
 @abrir-modal-edicion.window="
-  if ($event.detail) { 
-    const raw = $event.detail.comprobante \vert{}\vert{}$event.detail;
+  if ($event && $event.detail) { 
+    const raw = $event.detail.comprobante || $event.detail;
     const idHash = String(raw.hash_largo || raw.id || raw.referencia || '').trim();
-    const s1 = raw.nombre_socio_1 || raw.socio_1 || raw.grupo_1?.grupo || 'GENERAL';
-    const s2 = raw.nombre_socio_2 || raw.socio_2 || raw.grupo_2?.grupo || 'GENERAL';
+    const s1 = raw.nombre_socio_1 || raw.socio_1 || (raw.grupo_1 ? raw.grupo_1.grupo : 'GENERAL');
+    const s2 = raw.nombre_socio_2 || raw.socio_2 || (raw.grupo_2 ? raw.grupo_2.grupo : 'GENERAL');
     
     itemEdicion = JSON.parse(JSON.stringify({
       ...raw,
@@ -110,10 +110,10 @@
       nombre_socio_2: s2,
       socio_2: s2,
       monto: Math.abs(parseFloat(raw.monto || raw.monto_local || 0)),
-      m1_socio: raw.m1_socio ?? raw.monto_1 ?? raw.me1 ?? 0,
-      m2_socio: raw.m2_socio ?? raw.monto_2 ?? raw.me2 ?? 0,
-      tipo_manual: (raw.tipo_manual || raw.tipo || raw.tipo_op || 'D').toUpperCase(),
-      moneda: (raw.moneda || raw.moneda_local || 'USDT').toUpperCase(),
+      m1_socio: raw.m1_socio !== undefined ? raw.m1_socio : (raw.monto_1 !== undefined ? raw.monto_1 : (raw.me1 || 0)),
+      m2_socio: raw.m2_socio !== undefined ? raw.m2_socio : (raw.monto_2 !== undefined ? raw.monto_2 : (raw.me2 || 0)),
+      tipo_manual: String(raw.tipo_manual || raw.tipo || raw.tipo_op || 'D').toUpperCase(),
+      moneda: String(raw.moneda || raw.moneda_local || 'USDT').toUpperCase(),
       lote_tasa_asignado: raw.lote_tasa || raw.lote || 'T070'
     }));
 
@@ -297,7 +297,7 @@
                 <button type="button" 
                         @click="modalAbierto = false" 
                         class="px-3.5 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-600/50 text-rose-300 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-1 text-xs cursor-pointer">
-                  🗑️ Cancelar
+                  Cancelar
                 </button>
               </div>
               
