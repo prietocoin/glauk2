@@ -40,18 +40,27 @@ export function claseInsignia(tipoOp) {
   return 'bg-slate-800 text-slate-300 border-slate-600';
 }
 
-
 /**
- * Formatea una fecha/ISO string a formato "Día HH:MM AM/PM" (ej: Jueves 09:37 AM)
+ * 🟢 CORREGIDO: Soporta ISO string, Datetime SQL y Timestamps Unix (numéricos o string)
+ * Formatea a "Día HH:MM AM/PM" (ej: Jueves 09:37 AM)
  */
 export function formatDiaHora(fechaStr) {
   if (!fechaStr) return 'S/F';
-  
-  // Normalizar si viene como datetime-local "YYYY-MM-DDTHH:mm"
-  const iso = fechaStr.includes('T') ? fechaStr : fechaStr.replace(' ', 'T');
-  const date = new Date(iso);
-  
-  if (isNaN(date.getTime())) return 'S/F';
+
+  let date;
+
+  // A) Si es un Timestamp numérico o string numérico puro (ej: "1791675914")
+  const parsedNum = Number(fechaStr);
+  if (!isNaN(parsedNum) && parsedNum > 0) {
+    const ms = parsedNum < 10000000000 ? parsedNum * 1000 : parsedNum;
+    date = new Date(ms);
+  } else if (typeof fechaStr === 'string') {
+    // B) Cadena de texto ISO o SQL (remplaza espacio por T)
+    const iso = fechaStr.includes('T') ? fechaStr : fechaStr.replace(' ', 'T');
+    date = new Date(iso);
+  }
+
+  if (!date || isNaN(date.getTime())) return 'S/F';
 
   const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   const diaNombre = dias[date.getDay()];
