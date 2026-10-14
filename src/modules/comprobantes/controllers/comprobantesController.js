@@ -2,20 +2,37 @@
  * @file comprobantesController.js
  * @description Controlador HTTP orquestador modular para el CRUD de comprobantes_final.
  */
-const { obtenerComprobantesCompletos } = require('../queries/comprobantesQuery');
+
+// 🟢 Asegúrate de importar la función correcta que definimos para la V2
+const { obtenerComprobantesFinalPaginados } = require('../queries/comprobantesQuery');
 const { eliminarComprobante } = require('../services/comprobantesBorradoService');
 const { releerIA } = require('../services/comprobantesIaService');
 const { liquidarComprobante, actualizarComprobante } = require('../services/comprobantesSnapshotService');
 
 /**
- * 🟢 Lectura principal invocando la capa Query aislada
+ * 🟢 Lectura principal invocando la capa Query aislada (SSoT)
  */
 async function getComprobantes(req, res) {
   try {
-    const { socio, limit, page, fechaInicio, fechaFin } = req.query;
+    // Extraemos todos los posibles nombres de parámetros (camelCase y snake_case)
+    const { 
+      socio, 
+      limit, 
+      page, 
+      fechaInicio, 
+      fechaFin, 
+      fecha_inicio, 
+      fecha_fin 
+    } = req.query;
     
-    // Delegación directa a la capa Query
-    const rows = await obtenerComprobantesCompletos(socio, { limit, page, fechaInicio, fechaFin });
+    // Delegación directa a la capa Query de la V2
+    const rows = await obtenerComprobantesFinalPaginados({ 
+      socio, 
+      limit, 
+      page, 
+      fechaInicio: fechaInicio || fecha_inicio, 
+      fechaFin: fechaFin || fecha_fin 
+    });
 
     // Sanitización liviana en memoria (asegurar números y manejar "N/A")
     const comprobantesLimpios = rows.map((item) => {
@@ -36,7 +53,8 @@ async function getComprobantes(req, res) {
     return res.status(200).json(comprobantesLimpios);
   } catch (err) {
     console.error('[comprobantesController ❌ Error]:', err.message);
-    return res.status(200).json([]);
+    // Devolvemos 500 en lugar de 200 con un array vacío para no esconder el error en la red.
+    return res.status(500).json({ success: false, error: 'Error al consultar comprobantes.' });
   }
 }
 
