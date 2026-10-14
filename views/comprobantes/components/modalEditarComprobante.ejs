@@ -85,8 +85,9 @@
                   <select x-model="itemEdicion.nombre_socio_1" 
                           class="w-full bg-[#080e26] border border-cyan-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
                     <option value="GENERAL">GENERAL</option>
-                    <template x-for="s in (directorio || [])" :key="'ed-s1-'+(s.nombre || s)">
-                      <option :value="s.nombre || s" x-text="s.nombre || s"></option>
+                    <template x-for="(s, idx) in (directorio || [])" :key="'ed-s1-' + idx">
+                      <option :value="typeof s === 'object' ? (s.nombre || '') : s" 
+                              x-text="typeof s === 'object' ? (s.nombre || '') : s"></option>
                     </template>
                   </select>
                 </div>
@@ -95,8 +96,9 @@
                   <select x-model="itemEdicion.nombre_socio_2" 
                           class="w-full bg-[#080e26] border border-pink-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
                     <option value="GENERAL">GENERAL</option>
-                    <template x-for="s in (directorio || [])" :key="'ed-s2-'+(s.nombre || s)">
-                      <option :value="s.nombre || s" x-text="s.nombre || s"></option>
+                    <template x-for="(s, idx) in (directorio || [])" :key="'ed-s2-' + idx">
+                      <option :value="typeof s === 'object' ? (s.nombre || '') : s" 
+                              x-text="typeof s === 'object' ? (s.nombre || '') : s"></option>
                     </template>
                   </select>
                 </div>
@@ -168,11 +170,11 @@
               </div>
             </div>
 
-            <!-- BOTONERA DE ACCIONES IDÉNTICA AL MONOLITO -->
+            <!-- BOTONERA DE ACCIONES -->
             <div class="flex flex-wrap justify-between items-center pt-3 border-t border-blue-900/60 gap-2">
               <div class="flex gap-2">
                 <button type="button" 
-                        @click="eliminarComprobante(itemEdicion.hash_largo); modalAbierto = false" 
+                        @click="eliminarComprobante(itemEdicion.hash_largo || itemEdicion.id || itemEdicion.referencia); modalAbierto = false" 
                         class="px-3.5 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-600/50 text-rose-300 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-1 text-xs cursor-pointer">
                   🗑️ Eliminar
                 </button>
@@ -190,7 +192,7 @@
                   Cancelar
                 </button>
                 <button type="button" 
-                        @click="guardarEdicionComprobante ? guardarEdicionComprobante() : guardarCambios()" 
+                        @click="typeof guardarEdicionComprobante === 'function' ? guardarEdicionComprobante() : guardarCambios()" 
                         class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-black shadow-lg shadow-cyan-950/50 transition-all active:scale-95 flex items-center gap-1.5 text-xs cursor-pointer">
                   💾 Guardar & Congelar
                 </button>
