@@ -1,6 +1,6 @@
 /**
  * @file comprobantesTasasService.js
- * @description Módulo atómico exclusivo para la resolución determinista de T1 y T2.
+ * @description Módulo atómico exclusivo para la resolución determinista de T1 y T2 alineado con comprobantes_final.
  */
 
 /**
@@ -9,13 +9,18 @@
 async function obtenerTarjetasSocioFromHub(socio, lote) {
   try {
     if (!socio || socio === 'GENERAL' || socio === 'NO DEFINIDO') return null;
-    
+
     const socioQuery = encodeURIComponent(String(socio).trim());
     const baseUrl = process.env.TASASHUB_URL || 'http://127.0.0.1:3000';
     
     const url = `${baseUrl}/api/v1/tasas/calcular/${socioQuery}${lote ? `?lote=${encodeURIComponent(lote)}` : ''}`;
-    const response = await fetch(url);
-    
+
+    // Control de Timeout defensivo a 3 segundos para evitar bloquear el Event Loop
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const response = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+
     if (!response.ok) return null;
     return await response.json();
   } catch (err) {
@@ -26,9 +31,10 @@ async function obtenerTarjetasSocioFromHub(socio, lote) {
 
 /**
  * Extrae la tasa exacta (compra o venta) según la naturaleza y la moneda.
+ * Retorna 0 si no se encuentra cotización válida (evitando strings "N/A" en PostgreSQL).
  */
 function extraerTasaSegunNaturaleza(dataHub, monedaComprobante, naturaleza) {
-  if (!dataHub || !Array.isArray(dataHub.tarjetas_paises)) return 'N/A';
+  if (!dataHub || !Array.isArray(dataHub.tarjetas_paises)) return 0;
 
   const monSearch = String(monedaComprobante || '').trim().toUpperCase();
   const nat = String(naturaleza || '').trim().toUpperCase();
@@ -37,26 +43,29 @@ function extraerTasaSegunNaturaleza(dataHub, monedaComprobante, naturaleza) {
     (t) => String(t.code || '').trim().toUpperCase() === monSearch
   );
 
-  if (!tarjeta) return 'N/A';
+  if (!tarjeta) return 0;
 
+  let val = 0;
   if (nat === 'D') {
-    return Number(tarjeta.compra) > 0 ? Number(tarjeta.compra) : 'N/A';
+    val = Number(tarjeta.compra);
+  } else if (nat === 'P') {
+    val = Number(tarjeta.venta);
+  } else {
+    val = Number(tarjeta.compra || tarjeta.venta);
   }
 
-  if (nat === 'P') {
-    return Number(tarjeta.venta) > 0 ? Number(tarjeta.venta) : 'N/A';
-  }
-
-  return 'N/A';
+  return (!isNaN(val) && val > 0) ? Math.floor(val * 10000) / 10000 : 0;
 }
 
 /**
  * Resuelve T1 y T2 de forma determinista para un comprobante.
  */
 async function resolverTasasComprobante(item) {
-  const nat = String(item.tipo_op1 || item.naturaleza || '').trim().toUpperCase();
-  const monComp = String(item.moneda || item.moneda_local || '').trim().toUpperCase();
-  const lote = item.lote_tasa || item.lote_tasa_asignado || '';
+  if (!item) return { tasa_1: 0, tasa_2: 0 };
+
+  const nat = String(item.tipo_op1 || item.naturaleza || item.tipo_op || '').trim().toUpperCase();
+  const monComp = String(item.moneda || item.moneda_local || 'USDT').trim().toUpperCase();
+  const lote = item.lote_tasa || item.lote_tasa_asignado || item.lote || '';
 
   const s1 = item.nombre_socio_1 || item.socio_1 || 'GENERAL';
   const monS1 = String(item.moneda_base_socio1 || item.moneda_socio1 || '').trim().toUpperCase();
@@ -65,7 +74,7 @@ async function resolverTasasComprobante(item) {
   const monS2 = String(item.moneda_base_socio2 || item.moneda_socio2 || '').trim().toUpperCase();
 
   // 1. RESOLUCIÓN DE TASA 1
-  let t1;
+  let t1 = 0;
   if (nat === 'A' || (monS1 && monComp && monS1 === monComp)) {
     t1 = 1.00;
   } else {
@@ -74,7 +83,7 @@ async function resolverTasasComprobante(item) {
   }
 
   // 2. RESOLUCIÓN DE TASA 2
-  let t2;
+  let t2 = 0;
   if (nat === 'A' || (monS2 && monComp && monS2 === monComp)) {
     t2 = 1.00;
   } else {
