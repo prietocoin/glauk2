@@ -19,18 +19,27 @@
 </div>
 
 <!-- CENTINELA DE SCROLL INFINITO DE ALTA PROXIMIDAD -->
-<div id="sentinel-scroll" class="w-full py-12 my-6 flex flex-col justify-center items-center gap-2 min-h-[120px] relative z-50">
+<!-- CENTINELA DE SCROLL INFINITO (CON DISPARADOR MANUAL Y AUTOMÁTICO) -->
+<div id="sentinel-scroll" 
+     class="w-full py-8 my-4 flex flex-col justify-center items-center gap-2 cursor-pointer relative z-50 min-h-[100px]"
+     @click="cargarSiguientePagina()">
   
-  <!-- INDICADOR DE CARGA -->
+  <!-- CARGANDO Siguiente Lote -->
   <div x-show="cargando" class="flex items-center gap-2 text-cyan-400 text-xs font-mono animate-pulse bg-slate-900/90 px-5 py-2.5 rounded-full border border-cyan-500/40 shadow-xl">
     <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
-    <span>Cargando más comprobantes 2x...</span>
+    <span>Cargando más comprobantes...</span>
   </div>
 
-  <!-- FIN DE CARGA O LÍMITE DE 200 -->
+  <!-- INDICADOR DE MÁS DATOS (Permite clic directo como respaldo) -->
+  <div x-show="!cargando && hayMasDatos" class="text-center py-2 px-4 rounded-xl bg-slate-900/80 border border-cyan-500/30 text-cyan-400 text-xs font-mono shadow-lg hover:bg-cyan-950/40 transition-all">
+    <span>⬇️ Mostrando <span x-text="items.length"></span> de <span x-text="todosLosItems.length"></span> comprobantes — Desliza o haz clic aquí</span>
+  </div>
+
+  <!-- FIN DE REGISTROS O CAP DE 200 ALCANZADO -->
   <div x-show="!cargando && !hayMasDatos && items.length > 0" class="text-center py-2.5 px-5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 text-xs font-mono shadow-lg">
-    <span x-text="items.length >= capMaximoDOM ? '⚡ Límite máximo de 200 tarjetas alcanzado en pantalla' : '✅ Todos los comprobantes 2x han sido cargados'"></span>
-    <span class="block text-[10px] text-slate-500 mt-0.5" x-text="'Mostrando ' + items.length + ' de ' + todosLosItems.length + ' ítems 2x'"></span>
+    <span x-text="items.length >= capMaximoDOM ? '⚡ Límite máximo de 200 tarjetas alcanzado en pantalla' : '✅ Todos los comprobantes del mes están cargados'"></span>
+    <span class="block text-[10px] text-slate-500 mt-0.5" x-text="'Total en pantalla: ' + items.length + ' de ' + todosLosItems.length"></span>
   </div>
 
+</div>
 </div>
