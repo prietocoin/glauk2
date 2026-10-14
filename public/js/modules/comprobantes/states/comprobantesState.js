@@ -1,264 +1,321 @@
-/**
- * @file comprobantesState.js
- * Estado reactivo Alpine.js con Paginación Real Servidor + Buffer Incremental desde comprobantes_final.
- */
+<!-- ================================================================= -->
+<!-- COMPONENTE: modalEditarComprobante.ejs                            -->
+<!-- UBICACIÓN: views/comprobantes/components/                         -->
+<!-- RESPONSABILIDAD: Modal con Recalculo Dinámico de Montos / Socios  -->
+<!-- ================================================================= -->
 
-import { 
-  formatMonto, formatTasa, obtenerME1, obtenerME2, 
-  obtenerTasaSocioCalculada, claseInsignia, formatDiaHora 
-} from '../utils/comprobantesFormatters.js';
+<div x-data="{
+  modalAbierto: false,
+  cargando: false,
+  itemEdicion: null,
 
-import { 
-  calcularSociosPendientesConsolidado, 
-  calcularMovimientoFiltradoTotal 
-} from '../services/saldosCalculatorService.js';
+  obtenerTasaSocio(nombreSocio) {
+    if (!nombreSocio || nombreSocio === 'GENERAL') return 1.0;
+    const lista = (typeof directorio !== 'undefined' ? directorio : (typeof todosLosSocios !== 'undefined' ? todosLosSocios : []));
+    const sObj = lista.find(d => 
+      String(typeof d === 'object' ? d.nombre : d).trim().toUpperCase() === String(nombreSocio).trim().toUpperCase()
+    );
+    return parseFloat(sObj?.tasa || sObj?.tasa_base || 1.0) || 1.0;
+  },
 
-import { fetchComprobantesPaginados, eliminarComprobantePorHash } from '../services/comprobantesApiService.js';
-import { crearAccionesModal } from '../services/comprobantesModalActions.js';
-import { prepararEdicionComprobante, obtenerInsigniaRol } from '../services/comprobantesMapperService.js';
-import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/comprobantesSaldosService.js';
+  obtenerMonedaBaseSocio(nombreSocio) {
+    if (!nombreSocio || nombreSocio === 'GENERAL') return 'USDT';
+    const lista = (typeof directorio !== 'undefined' ? directorio : (typeof todosLosSocios !== 'undefined' ? todosLosSocios : []));
+    const sObj = lista.find(d => 
+      String(typeof d === 'object' ? d.nombre : d).trim().toUpperCase() === String(nombreSocio).trim().toUpperCase()
+    );
+    return sObj?.moneda_base || sObj?.moneda || 'USDT';
+  },
 
-function obtenerRangoMesActualCaracas() {
-  const timeZone = 'America/Caracas';
-  const ahora = new Date();
-  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
+  recalcularMontos() {
+    if (!this.itemEdicion) return;
+    const montoLocal = Math.abs(parseFloat(this.itemEdicion.monto || 0));
+    const monedaRecibo = String(this.itemEdicion.moneda || 'USDT').toUpperCase();
 
-  const primerDia = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-  const fechaInicio = fmt.format(primerDia);
+    // SOCIO 1
+    const mBase1 = this.obtenerMonedaBaseSocio(this.itemEdicion.nombre_socio_1);
+    const tasa1 = this.obtenerTasaSocio(this.itemEdicion.nombre_socio_1);
+    if (mBase1 === monedaRecibo) {
+      this.itemEdicion.m1_socio = montoLocal.toFixed(2);
+    } else {
+      this.itemEdicion.m1_socio = (tasa1 > 0 ? (montoLocal / tasa1) : montoLocal).toFixed(2);
+    }
 
-  const ultimoDia = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
-  const fechaFin = fmt.format(ultimoDia);
+    // SOCIO 2
+    const mBase2 = this.obtenerMonedaBaseSocio(this.itemEdicion.nombre_socio_2);
+    const tasa2 = this.obtenerTasaSocio(this.itemEdicion.nombre_socio_2);
+    if (mBase2 === monedaRecibo) {
+      this.itemEdicion.m2_socio = montoLocal.toFixed(2);
+    } else {
+      this.itemEdicion.m2_socio = (tasa2 > 0 ? (montoLocal / tasa2) : montoLocal).toFixed(2);
+    }
+  },
 
-  return { fechaInicio, fechaFin };
-}
+  async guardarModal() {
+    if (!this.itemEdicion || this.cargando) return;
+    this.cargando = true;
 
-export function comprobantesState() {
-  const { fechaInicio: inicioMes, fechaFin: finMes } = obtenerRangoMesActualCaracas();
+    const hashTarget = this.itemEdicion.hash_largo || this.itemEdicion.id;
 
-  const state = {
-    // 1. CONTROL DE PAGINACIÓN SERVIDOR + DOM
-    paginaAPI: 1,       // Página actual enviada al Backend
-    limitAPI: 50,       // Lote que pedimos por llamada a la API
-    todosLosItems: [],  // Buffer acumulado en memoria
-    items: [],          // Visibles en pantalla
-    directorio: [], 
-    cargando: false, 
-    hayMasDatos: true,
-    
-    tamanoLote: 20,
-    capMaximoDOM: 300,  // Límite máximo en pantalla
+    const payload = {
+      hash_largo: hashTarget,
+      banco: this.itemEdicion.banco,
+      referencia: this.itemEdicion.referencia,
+      titular: this.itemEdicion.titular,
+      socio_1: this.itemEdicion.nombre_socio_1,
+      socio_2: this.itemEdicion.nombre_socio_2,
+      nombre_socio_1: this.itemEdicion.nombre_socio_1,
+      nombre_socio_2: this.itemEdicion.nombre_socio_2,
+      tipo_manual: this.itemEdicion.tipo_manual || 'D',
+      moneda: this.itemEdicion.moneda,
+      monto: parseFloat(this.itemEdicion.monto || 0),
+      m1_socio: parseFloat(this.itemEdicion.m1_socio || 0),
+      m2_socio: parseFloat(this.itemEdicion.m2_socio || 0),
+      monto_1: parseFloat(this.itemEdicion.m1_socio || 0),
+      monto_2: parseFloat(this.itemEdicion.m2_socio || 0),
+      loteActivo: this.itemEdicion.lote_tasa_asignado || 'T070'
+    };
 
-    modalAbierto: false, 
-    itemEdicion: null,
-    loteActivo: 'T070',
-
-    filtroRol: '', 
-    filtroSocio: '', 
-    filtroFechaInicio: inicioMes, 
-    filtroFechaFin: finMes,
-    filtroDesdeHash: '', 
-    filtroHastaHash: '', 
-    filtroOrden: 'fecha_desc',
-    filtroHash: '', 
-    saldoAnterior: 0,
-
-    obtenerSujetoAuditado,
-    obtenerInsigniaRol,
-
-    get comprobantes() {
-      return this.items;
-    },
-
-    get movimientoFiltradoTotal() {
-      return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
-    },
-
-    get saldoActualTotal() {
-      return (parseFloat(this.saldoAnterior) || 0) + this.movimientoFiltradoTotal;
-    },
-
-    get sociosPendientesConsolidado() {
-      return calcularSociosPendientesConsolidado(this.directorio, this.items, {
-        fechaInicio: this.filtroFechaInicio, fechaFin: this.filtroFechaFin
+    try {
+      const res = await fetch('/api/v2/comprobantes/' + encodeURIComponent(hashTarget), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
-    },
 
-    init() {
-      this.$nextTick(() => {
-        this.escucharActualizacionesGlobales();
-        this.resetearYRefrescar();
-        this.iniciarEscuchadoresScroll();
-      });
-    },
+      if (!res.ok) throw new Error('Error al guardar en servidor');
 
-    // 🟢 ESCUCHAR EVENTO GLOBAL DE GUARDADO DE MODAL (SIN PERDER 2X NI NADA EN REACTIVIDAD)
-    escucharActualizacionesGlobales() {
-      window.addEventListener('comprobante-actualizado', (evt) => {
-        const payload = evt.detail;
-        if (!payload || !payload.hash_largo) return;
-
-        const targetHash = String(payload.hash_largo).trim().toLowerCase();
-
-        // 1. Actualizar en el buffer acumulado
-        const idxTodos = this.todosLosItems.findIndex(i => String(i.hash_largo || i.id).trim().toLowerCase() === targetHash);
-        if (idxTodos !== -1) {
-          this.todosLosItems[idxTodos] = prepararEdicionComprobante({ 
-            ...this.todosLosItems[idxTodos], 
-            ...payload 
-          }, this.loteActivo);
-        }
-
-        // 2. Actualizar en los ítems visibles e indicar reactividad a Alpine
-        const idxVisibles = this.items.findIndex(i => String(i.hash_largo || i.id).trim().toLowerCase() === targetHash);
-        if (idxVisibles !== -1) {
-          this.items[idxVisibles] = prepararEdicionComprobante({ 
-            ...this.items[idxVisibles], 
-            ...payload 
-          }, this.loteActivo);
-          
-          // Forzar re-render en Alpine.js
-          this.items = [...this.items];
-        } else if (idxTodos === -1) {
-          // Si el elemento no existía en el buffer, refrescar el lote
-          this.resetearYRefrescar();
-        }
-      });
-    },
-
-    actualizarSocioSeleccionado() {
-      this.saldoAnterior = obtenerSaldoAnteriorSocio(this.directorio, this.filtroSocio);
-      this.resetearYRefrescar();
-    },
-
-    async cargarComprobantes(silencioso = false) {
-      return this.resetearYRefrescar();
-    },
-
-    async resetearYRefrescar() {
-      this.items = [];
-      this.todosLosItems = [];
-      this.paginaAPI = 1;
-      this.hayMasDatos = true;
+      window.dispatchEvent(new CustomEvent('comprobante-actualizado', { detail: payload }));
+      this.modalAbierto = false;
+    } catch (err) {
+      alert('Error al congelar: ' + err.message);
+    } finally {
       this.cargando = false;
-      return this.cargarSiguientePagina();
-    },
+    }
+  }
+}" 
+@abrir-modal-edicion.window="
+  if ($event && $event.detail) { 
+    const raw = $event.detail.comprobante || $event.detail;
+    const idHash = String(raw.hash_largo || raw.id || raw.referencia || '').trim();
+    const s1 = raw.nombre_socio_1 || raw.socio_1 || (raw.grupo_1 ? raw.grupo_1.grupo : 'GENERAL');
+    const s2 = raw.nombre_socio_2 || raw.socio_2 || (raw.grupo_2 ? raw.grupo_2.grupo : 'GENERAL');
+    
+    itemEdicion = JSON.parse(JSON.stringify({
+      ...raw,
+      id: idHash,
+      hash_largo: idHash,
+      nombre_socio_1: s1,
+      socio_1: s1,
+      nombre_socio_2: s2,
+      socio_2: s2,
+      monto: Math.abs(parseFloat(raw.monto || raw.monto_local || 0)),
+      m1_socio: raw.m1_socio !== undefined ? raw.m1_socio : (raw.monto_1 !== undefined ? raw.monto_1 : (raw.me1 || 0)),
+      m2_socio: raw.m2_socio !== undefined ? raw.m2_socio : (raw.monto_2 !== undefined ? raw.monto_2 : (raw.me2 || 0)),
+      tipo_manual: String(raw.tipo_manual || raw.tipo || raw.tipo_op || 'D').toUpperCase(),
+      moneda: String(raw.moneda || raw.moneda_local || 'USDT').toUpperCase(),
+      lote_tasa_asignado: raw.lote_tasa || raw.lote || 'T070'
+    }));
 
-    // 🟢 PAGINACIÓN REAL CONTRA LA API + REVELADO PROGRESIVO DE 20 EN 20
-    async cargarSiguientePagina() {
-      if (this.cargando || !this.hayMasDatos) return;
-      this.cargando = true;
+    modalAbierto = true; 
+  }
+">
+  <template x-teleport="body">
+    <div x-show="modalAbierto" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="fixed inset-0 z-[99999] flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-md" 
+         x-cloak>
+      
+      <div class="bg-[#080e26] border border-blue-900/80 rounded-2xl w-[95vw] max-w-2xl p-4 sm:p-5 space-y-4 shadow-2xl relative max-h-[90vh] overflow-y-auto" 
+           @click.away="modalAbierto = false">
+        
+        <!-- CABECERA DE MODAL -->
+        <div class="flex items-center justify-between border-b border-blue-900/60 pb-2.5">
+          <span class="text-cyan-400 font-black text-sm sm:text-base flex items-center gap-2">✏️ Auditar & Liquidar Comprobante</span>
+          <button type="button" 
+                  @click="modalAbierto = false" 
+                  class="text-slate-400 hover:text-white text-base font-bold p-1 transition-colors cursor-pointer">✕</button>
+        </div>
 
-      try {
-        if (this.items.length + this.tamanoLote > this.todosLosItems.length) {
-          const params = {
-            page: this.paginaAPI,
-            limit: this.limitAPI,
-            socio: this.filtroSocio, 
-            rol: this.filtroRol,
-            fechaInicio: this.filtroFechaInicio, 
-            fechaFin: this.filtroFechaFin
-          };
+        <!-- CUERPO PRINCIPAL DEL MODAL -->
+        <template x-if="itemEdicion">
+          <div class="space-y-3.5 text-xs">
+            
+            <!-- ENCABEZADO: HASH LARGO Y FECHA INPUT -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-[#030611] p-2.5 rounded-xl border border-blue-900/60">
+              <div class="sm:col-span-2">
+                <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Hash Largo Referencia</label>
+                <input type="text" 
+                       x-model="itemEdicion.hash_largo" 
+                       readonly 
+                       class="w-full bg-[#080e26] border border-cyan-500/30 rounded-lg px-2 py-1.5 text-xs text-cyan-400 font-mono font-bold outline-none truncate">
+              </div>
+              <div class="sm:col-span-1">
+                <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Fecha Input</label>
+                <input type="datetime-local" 
+                       x-model="itemEdicion.fecha_hora_input" 
+                       class="w-full bg-[#080e26] border border-blue-900/80 rounded-lg px-2 py-1.5 text-xs text-white font-mono font-bold outline-none focus:border-cyan-400">
+              </div>
+            </div>
 
-          const raw = await fetchComprobantesPaginados(params);
-          const lista = Array.isArray(raw) ? raw : (raw?.datos || raw?.comprobantes || raw?.data || []);
+            <!-- BLOQUE 1: DATOS EXTRAÍDOS / BANCO -->
+            <div class="space-y-1">
+              <span class="text-[10px] font-black text-cyan-400 uppercase tracking-wider">1. DATOS EXTRAÍDOS / BANCO</span>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-[#030611] p-2.5 rounded-xl border border-blue-900/60">
+                <div>
+                  <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Banco</label>
+                  <input type="text" 
+                         x-model="itemEdicion.banco" 
+                         placeholder="BINANCE" 
+                         class="w-full bg-[#080e26] border border-blue-900/80 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none uppercase focus:border-cyan-400">
+                </div>
+                <div>
+                  <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Nº Referencia</label>
+                  <input type="text" 
+                         x-model="itemEdicion.referencia" 
+                         placeholder="418926466452" 
+                         class="w-full bg-[#080e26] border border-blue-900/80 rounded-lg px-2 py-1.5 text-xs text-cyan-300 font-mono font-bold outline-none focus:border-cyan-400">
+                </div>
+                <div>
+                  <label class="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Titular Cuenta</label>
+                  <input type="text" 
+                         x-model="itemEdicion.titular" 
+                         placeholder="JAIRO FUNDABLOCK" 
+                         class="w-full bg-[#080e26] border border-blue-900/80 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none uppercase focus:border-cyan-400">
+                </div>
+              </div>
+            </div>
 
-          if (lista.length === 0) {
-            this.hayMasDatos = false;
-          } else {
-            const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
+            <!-- BLOQUE 2: ASIGNACIÓN DE SOCIOS -->
+            <div class="space-y-1">
+              <span class="text-[10px] font-black text-purple-400 uppercase tracking-wider">2. ASIGNACIÓN DE SOCIOS</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-[#030611] p-2.5 rounded-xl border border-blue-900/60">
+                <div>
+                  <label class="block text-[8px] font-bold text-cyan-400 uppercase mb-0.5">Socio 1 (Impacto)</label>
+                  <select x-model="itemEdicion.nombre_socio_1" 
+                          @change="recalcularMontos()"
+                          class="w-full bg-[#080e26] border border-cyan-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
+                    <option value="GENERAL">GENERAL</option>
+                    <template x-for="(s, idx) in (typeof directorio !== 'undefined' ? directorio : (typeof todosLosSocios !== 'undefined' ? todosLosSocios : []))" :key="'ed-s1-' + idx">
+                      <option :value="typeof s === 'object' ? (s.nombre || '') : s" 
+                              :selected="(typeof s === 'object' ? s.nombre : s) === itemEdicion.nombre_socio_1"
+                              x-text="typeof s === 'object' ? (s.nombre || '') : s"></option>
+                    </template>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[8px] font-bold text-pink-400 uppercase mb-0.5">Socio 2 (Contraparte)</label>
+                  <select x-model="itemEdicion.nombre_socio_2" 
+                          @change="recalcularMontos()"
+                          class="w-full bg-[#080e26] border border-pink-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
+                    <option value="GENERAL">GENERAL</option>
+                    <template x-for="(s, idx) in (typeof directorio !== 'undefined' ? directorio : (typeof todosLosSocios !== 'undefined' ? todosLosSocios : []))" :key="'ed-s2-' + idx">
+                      <option :value="typeof s === 'object' ? (s.nombre || '') : s" 
+                              :selected="(typeof s === 'object' ? s.nombre : s) === itemEdicion.nombre_socio_2"
+                              x-text="typeof s === 'object' ? (s.nombre || '') : s"></option>
+                    </template>
+                  </select>
+                </div>
+              </div>
+            </div>
 
-            // Evitar duplicados por HASH / ID
-            const idsExistentes = new Set(this.todosLosItems.map(i => String(i.id || i.hash_largo)));
-            const nuevosUnicos = mapeados.filter(i => !idsExistentes.has(String(i.id || i.hash_largo)));
+            <!-- BLOQUE 3: REGLAS DE OPERACIÓN -->
+            <div class="space-y-1">
+              <span class="text-[10px] font-black text-amber-400 uppercase tracking-wider">3. REGLAS DE OPERACIÓN</span>
+              <div class="bg-[#030611] p-2.5 rounded-xl border border-blue-900/60 space-y-2">
+                
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div>
+                    <label class="block text-[8px] font-bold text-amber-400 uppercase mb-0.5">Naturaleza</label>
+                    <select x-model="itemEdicion.tipo_manual" 
+                            class="w-full bg-[#080e26] border border-amber-500/40 rounded-lg px-2 py-1.5 text-xs text-amber-300 font-bold outline-none">
+                      <option value="A">A (Abono)</option>
+                      <option value="D">D (Depósito)</option>
+                      <option value="P">P (Pago)</option>
+                    </select>
+                  </div>
 
-            this.todosLosItems = [...this.todosLosItems, ...nuevosUnicos];
-            this.paginaAPI++;
+                  <div>
+                    <label class="block text-[8px] font-bold text-emerald-400 uppercase mb-0.5">Moneda Recibo</label>
+                    <select x-model="itemEdicion.moneda" 
+                            @change="recalcularMontos()"
+                            class="w-full bg-[#080e26] border border-emerald-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
+                      <template x-for="m in ['USD','USDT','ECU','VES','COP','PEN','ARS','BRL','CLP','MXN','PYG','BOB','EUR','CAD','GBP']" :key="m">
+                        <option :value="m" x-text="m" :selected="m === itemEdicion.moneda"></option>
+                      </template>
+                    </select>
+                  </div>
 
-            if (lista.length < this.limitAPI) {
-              this.hayMasDatos = false;
-            }
-          }
-        }
+                  <div>
+                    <label class="block text-[8px] font-bold text-emerald-400 uppercase mb-0.5">Monto Local</label>
+                    <input type="number" 
+                           step="any" 
+                           x-model="itemEdicion.monto" 
+                           @input="recalcularMontos()"
+                           class="w-full bg-[#080e26] border border-emerald-500/40 rounded-lg px-2 py-1.5 text-xs text-emerald-300 font-mono font-bold outline-none">
+                  </div>
 
-        const proximoLimite = Math.min(
-          this.items.length + this.tamanoLote,
-          this.capMaximoDOM,
-          this.todosLosItems.length
-        );
+                  <div>
+                    <label class="block text-[8px] font-bold text-purple-400 uppercase mb-0.5">Lote Tasa</label>
+                    <input type="text" 
+                           x-model="itemEdicion.lote_tasa_asignado" 
+                           placeholder="T070" 
+                           class="w-full bg-[#080e26] border border-purple-500/40 rounded-lg px-2 py-1.5 text-xs text-purple-300 font-mono font-bold outline-none uppercase">
+                  </div>
+                </div>
 
-        this.items = [...this.todosLosItems.slice(0, proximoLimite)];
+                <!-- MONTOS SOCIO 1 Y 2 CALCULADOS / AJUSTABLES -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-blue-900/40">
+                  <div>
+                    <label class="block text-[8px] font-bold text-cyan-400 uppercase mb-0.5">Monto Socio 1 (Monto_1)</label>
+                    <input type="number" 
+                           step="any" 
+                           x-model="itemEdicion.m1_socio" 
+                           class="w-full bg-[#080e26] border border-cyan-500/40 rounded-lg px-2 py-1.5 text-xs text-cyan-300 font-mono font-bold outline-none">
+                  </div>
 
-        if (this.items.length >= this.capMaximoDOM) {
-          this.hayMasDatos = false;
-        }
+                  <div>
+                    <label class="block text-[8px] font-bold text-pink-400 uppercase mb-0.5">Monto Socio 2 (Monto_2)</label>
+                    <input type="number" 
+                           step="any" 
+                           x-model="itemEdicion.m2_socio" 
+                           class="w-full bg-[#080e26] border border-pink-500/40 rounded-lg px-2 py-1.5 text-xs text-pink-300 font-mono font-bold outline-none">
+                  </div>
+                </div>
 
-      } catch (err) {
-        console.error('❌ Error al cargar lote de comprobantes:', err);
-      } finally {
-        setTimeout(() => {
-          this.cargando = false;
-        }, 100);
-      }
-    },
+              </div>
+            </div>
 
-    // 🟢 DETECTOR DE SCROLL
-    iniciarEscuchadoresScroll() {
-      this.$nextTick(() => {
-        const intentarCargar = () => {
-          if (this.cargando || !this.hayMasDatos) return;
+            <!-- BOTONERA DE ACCIONES -->
+            <div class="flex flex-wrap justify-between items-center pt-3 border-t border-blue-900/60 gap-2">
+              <div class="flex gap-2">
+                <button type="button" 
+                        @click="modalAbierto = false" 
+                        class="px-3.5 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-600/50 text-rose-300 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-1 text-xs cursor-pointer">
+                  Cancel
+                </button>
+              </div>
+              
+              <div class="flex gap-2">
+                <button type="button" 
+                        @click="guardarModal()" 
+                        :disabled="cargando"
+                        class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-black shadow-lg shadow-cyan-950/50 transition-all active:scale-95 flex items-center gap-1.5 text-xs cursor-pointer disabled:opacity-50">
+                  <span x-show="!cargando">💾 Guardar & Congelar</span>
+                  <span x-show="cargando">⏳ Guardando...</span>
+                </button>
+              </div>
+            </div>
 
-          const sentinel = document.getElementById('sentinel-scroll');
-          if (!sentinel) return;
+          </div>
+        </template>
 
-          const rect = sentinel.getBoundingClientRect();
-          const vh = window.innerHeight || document.documentElement.clientHeight;
-
-          if (rect.top <= vh + 600) {
-            this.cargarSiguientePagina();
-          }
-        };
-
-        document.addEventListener('scroll', intentarCargar, { capture: true, passive: true });
-        window.addEventListener('scroll', intentarCargar, { passive: true });
-        document.addEventListener('wheel', intentarCargar, { capture: true, passive: true });
-        document.addEventListener('touchmove', intentarCargar, { capture: true, passive: true });
-
-        setInterval(intentarCargar, 250);
-
-        const sentinel = document.getElementById('sentinel-scroll');
-        if (sentinel) {
-          const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
-              intentarCargar();
-            }
-          }, { rootMargin: '400px' });
-
-          observer.observe(sentinel);
-        }
-      });
-    },
-
-    async eliminarComprobante(identificador) {
-      if (!identificador) return;
-
-      if (!confirm('¿Confirmas que deseas eliminar este comprobante?')) return;
-
-      const idStr = String(identificador).trim();
-
-      try {
-        await eliminarComprobantePorHash(idStr);
-      } catch (err) {
-        console.error('❌ Error al eliminar:', err);
-      } finally {
-        this.items = this.items.filter(item => String(item.id || item.hash_largo || '') !== idStr);
-        this.todosLosItems = this.todosLosItems.filter(item => String(item.id || item.hash_largo || '') !== idStr);
-      }
-    },
-
-    formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia, formatDiaHora
-  };
-
-  Object.assign(state, crearAccionesModal(state));
-
-  return state;
-}
+      </div>
+    </div>
+  </template>
+</div>
