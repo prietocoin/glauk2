@@ -1,7 +1,7 @@
 <!-- ================================================================= -->
 <!-- COMPONENTE: cardSociosDetalle.ejs                                 -->
 <!-- UBICACIÓN: views/comprobantes/components/                         -->
-<!-- RESPONSABILIDAD: Muestra Socio 1, Socio 2, Polaridad, Tasas y Montos -->
+<!-- RESPONSABILIDAD: Muestra Socio 1, Socio 2, Tasas y Montos con Color de Polaridad -->
 <!-- ================================================================= -->
 
 <div class="bg-[#030611] rounded-xl border border-blue-900/50 p-2 space-y-1">
@@ -28,12 +28,9 @@
          }
        }">
     
-    <!-- Nombre con Micro-Insignia de Rol y Signo de Polaridad -->
+    <!-- Nombre limpio con Micro-Insignia -->
     <div class="col-span-4 flex items-center gap-1 min-w-0">
       <span class="text-[10px] shrink-0 select-none" x-text="s1Badge"></span>
-      <span class="font-bold text-[10px] shrink-0 select-none font-mono"
-            :class="s1Polaridad === '+' ? 'text-emerald-400' : 'text-rose-400'"
-            x-text="s1Polaridad"></span>
       <span class="font-black text-cyan-300 uppercase truncate text-[11px]" 
             x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s1Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s1Nombre"></span>
     </div>
@@ -44,12 +41,13 @@
             x-text="'T1: ' + formatTasa(obtenerTasaSocioCalculada(item, 1))"></span>
     </div>
 
-    <!-- Volumen y Divisa Socio 1 -->
-    <span class="col-span-5 font-mono font-bold text-right truncate text-[11px] text-emerald-400" 
+    <!-- Monto Socio 1: Color y Signo según Polaridad (+ Verde / - Magenta) -->
+    <span class="col-span-5 font-mono font-bold text-right truncate text-[11px]" 
+          :class="s1Polaridad === '-' ? 'text-pink-400' : 'text-emerald-400'"
           x-text="(s1Polaridad === '-' ? '- ' : '') + formatMonto(Math.abs(parseFloat(obtenerME1(item)))) + ' ' + s1Moneda"></span>
   </div>
   
-  <!-- SOCIO 2 (Contraparte - Color Rosa: Render condicional) -->
+  <!-- SOCIO 2 (Contraparte - Color Rosa) -->
   <template x-if="(item.socio_2 || item.nombre_socio_2) && (item.socio_2 || item.nombre_socio_2) !== 'GENERAL' && (item.socio_2 || item.nombre_socio_2) !== 'NO DEFINIDO'">
     <div class="grid grid-cols-12 items-center text-xs gap-1 border-t border-blue-900/40 pt-1"
          x-data="{ 
@@ -72,12 +70,9 @@
            }
          }">
       
-      <!-- Nombre con Micro-Insignia de Rol y Signo de Polaridad -->
+      <!-- Nombre limpio con Micro-Insignia -->
       <div class="col-span-4 flex items-center gap-1 min-w-0">
         <span class="text-[10px] shrink-0 select-none" x-text="s2Badge"></span>
-        <span class="font-bold text-[10px] shrink-0 select-none font-mono"
-              :class="s2Polaridad === '+' ? 'text-emerald-400' : 'text-rose-400'"
-              x-text="s2Polaridad"></span>
         <span class="font-black text-pink-300 uppercase truncate text-[11px]" 
               x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s2Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s2Nombre"></span>
       </div>
@@ -88,8 +83,9 @@
               x-text="'T2: ' + formatTasa(obtenerTasaSocioCalculada(item, 2))"></span>
       </div>
 
-      <!-- Volumen y Divisa Socio 2 -->
-      <span class="col-span-5 font-mono font-bold text-right truncate text-[11px] text-emerald-400" 
+      <!-- Monto Socio 2: Color y Signo según Polaridad (+ Verde / - Magenta) -->
+      <span class="col-span-5 font-mono font-bold text-right truncate text-[11px]" 
+            :class="s2Polaridad === '-' ? 'text-pink-400' : 'text-emerald-400'"
             x-text="(s2Polaridad === '-' ? '- ' : '') + formatMonto(Math.abs(parseFloat(obtenerME2(item)))) + ' ' + s2Moneda"></span>
     </div>
   </template>
