@@ -1,95 +1,114 @@
 /**
  * @file comprobantesModalActions.js
- * @path public/js/modules/comprobantes/services/comprobantesModalActions.js
- * @description Acciones atómicas blindadas para el modal de comprobantes (CRUD sobre comprobantes_final).
+ * @description Acciones del modal asociadas al estado de Alpine.js para edición directa en comprobantes_final.
  */
-import { 
-  guardarCambiosComprobante, 
-  eliminarComprobantePorHash, 
-  solicitarRelecturaIA 
-} from './comprobantesApiService.js';
-import { prepararEdicionComprobante } from './comprobantesMapperService.js';
+import { actualizarComprobanteApi, releerIaApi } from './comprobantesApiService.js';
 
 export function crearAccionesModal(state) {
   return {
     abrirModalEdicion(item) {
-      if (!item) return;
-      
-      try {
-        // 1. Clonado profundo raw del item que viene del backend
-        const itemClonado = JSON.parse(JSON.stringify(item));
-
-        // 2. Mapeo preliminar desde la API v2
-        const itemMapeado = typeof prepararEdicionComprobante === 'function' 
-          ? prepararEdicionComprobante(itemClonado, state.loteActivo || 'T071') 
-          : { ...itemClonado };
-
-        // 3. BLINDAJE DINÁMICO: Prioriza los valores devueltos por comprobantes_final
-        state.itemEdicion = {
-          ...itemMapeado,
-          socio_1: itemMapeado.socio_1 || item.nombre_socio_1 || item.socio_1 || 'GENERAL',
-          socio_2: itemMapeado.socio_2 || item.nombre_socio_2 || item.socio_2 || 'GENERAL',
-          monto_1: itemMapeado.monto_1 ?? item.monto_1 ?? item.m1_socio ?? item.me1 ?? 0,
-          monto_2: itemMapeado.monto_2 ?? item.monto_2 ?? item.m2_socio ?? item.me2 ?? 0
-        };
-
-      } catch (e) {
-        console.warn('[ModalActions] Error en mapper, usando fallback copia directa:', e);
-        state.itemEdicion = JSON.parse(JSON.stringify(item));
-      }
-
-      // Cambiar visibilidad del modal INMEDIATAMENTE
+      state.itemEdicion = JSON.parse(JSON.stringify(item));
       state.modalAbierto = true;
     },
 
-    abrirModal(item) {
-      this.abrirModalEdicion(item);
-    },
-
-    cerrarModalEdicion() {
+    cerrarModal() {
       state.modalAbierto = false;
       state.itemEdicion = null;
     },
 
-    async guardarCambios() {
+    recalcularMontosModal() {
+      if (!state.itemEdicion) return;
+      const item = state.itemEdicion;
+      const montoLocal = Math.abs(parseFloat(item.monto || 0));
+      const monedaRecibo = String(item.moneda || 'USDT').toUpperCase();
+
+      const obtenerMonedaBase = (socio) => {
+        if (!socio || socio === 'GENERAL') return 'USDT';
+        const found = (state.directorio || []).find(d => (d.nombre || '').toUpperCase() === String(socio).toUpperCase());
+        return found?.moneda_base || found?.moneda || 'USDT';
+      };
+
+      const obtenerTasa = (socio) => {
+        if (!socio || socio === 'GENERAL') return 1.0;
+        const found = (state.directorio || []).find(d => (d.nombre || '').toUpperCase() === String(socio).toUpperCase());
+        return parseFloat(found?.tasa || found?.tasa_base || 1.0) || 1.0;
+      };
+
+      // Recálculo Socio 1
+      const mBase1 = obtenerMonedaBase(item.nombre_socio_1);
+      const tasa1 = obtenerTasa(item.nombre_socio_1);
+      item.m1_socio = mBase1 === monedaRecibo ? montoLocal.toFixed(2) : (tasa1 > 0 ? (montoLocal / tasa1) : montoLocal).toFixed(2);
+
+      // Recálculo Socio 2
+      const mBase2 = obtenerMonedaBase(item.nombre_socio_2);
+      const tasa2 = obtenerTasa(item.nombre_socio_2);
+      item.m2_socio = mBase2 === monedaRecibo ? montoLocal.toFixed(2) : (tasa2 > 0 ? (montoLocal / tasa2) : montoLocal).toFixed(2);
+    },
+
+    async guardarCambiosModal() {
       if (!state.itemEdicion) return;
 
-      const hashLargo = state.itemEdicion.hash_largo || state.itemEdicion.id;
-      const guardadoExitoso = await guardarCambiosComprobante(hashLargo, state.itemEdicion, state.loteActivo);
+      const item = state.itemEdicion;
+      const hashTarget = item.hash_largo || item.id;
 
-      if (guardadoExitoso) {
-        state.modalAbierto = false;
-        if (typeof state.cargarComprobantes === 'function') {
-          await state.cargarComprobantes();
+      if (!hashTarget) {
+        alert('❌ No se encontró el hash del comprobante.');
+        return;
+      }
+
+      const payload = {
+        hash_largo: hashTarget,
+        banco: item.banco,
+        referencia: item.referencia,
+        titular: item.titular,
+        socio_1: item.nombre_socio_1 || item.socio_1,
+        socio_2: item.nombre_socio_2 || item.socio_2,
+        tipo_manual: item.tipo_manual || 'D',
+        moneda: item.moneda,
+        monto: parseFloat(item.monto || 0),
+        m1_socio: parseFloat(item.m1_socio || 0),
+        m2_socio: parseFloat(item.m2_socio || 0),
+        monto_1: parseFloat(item.m1_socio || 0),
+        monto_2: parseFloat(item.m2_socio || 0),
+        lote: item.lote_tasa_asignado || 'T070'
+      };
+
+      try {
+        state.cargando = true;
+
+        await actualizarComprobanteApi(hashTarget, payload);
+
+        // Actualizar datos en las listas reactivas de Alpine.js
+        const idx = state.items.findIndex(i => (i.hash_largo || i.id) === hashTarget);
+        if (idx !== -1) {
+          state.items[idx] = { ...state.items[idx], ...payload, es_edicion_manual: true, esta_liquidado: true };
         }
+
+        const idxTodos = state.todosLosItems.findIndex(i => (i.hash_largo || i.id) === hashTarget);
+        if (idxTodos !== -1) {
+          state.todosLosItems[idxTodos] = { ...state.todosLosItems[idxTodos], ...payload, es_edicion_manual: true, esta_liquidado: true };
+        }
+
+        state.cerrarModal();
+      } catch (err) {
+        console.error('❌ Error al guardar:', err);
+        alert('Error al guardar cambios: ' + err.message);
+      } finally {
+        state.cargando = false;
       }
     },
 
     async releerIAModal() {
       if (!state.itemEdicion) return;
+      const hashTarget = state.itemEdicion.hash_largo || state.itemEdicion.id;
+      if (!hashTarget) return;
 
-      const hashLargo = state.itemEdicion.hash_largo || state.itemEdicion.id;
-      const relecturaExitosa = await solicitarRelecturaIA(hashLargo);
-
-      if (relecturaExitosa) {
-        state.modalAbierto = false;
-        if (typeof state.cargarComprobantes === 'function') {
-          await state.cargarComprobantes();
-        }
-      }
-    },
-
-    async eliminarComprobante(hashLargo) {
-      const targetHash = hashLargo || state.itemEdicion?.hash_largo || state.itemEdicion?.id;
-      if (!targetHash) return;
-
-      const eliminadoExitoso = await eliminarComprobantePorHash(targetHash);
-
-      if (eliminadoExitoso) {
-        state.modalAbierto = false;
-        if (typeof state.cargarComprobantes === 'function') {
-          await state.cargarComprobantes();
-        }
+      try {
+        await releerIaApi(hashTarget);
+        alert('🤖 Re-lectura encolada con éxito');
+        state.cerrarModal();
+      } catch (err) {
+        alert('Error al encolar re-lectura: ' + err.message);
       }
     }
   };
