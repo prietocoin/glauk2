@@ -1,6 +1,6 @@
 /**
  * @file comprobantesApiService.js
- * @description Servicio atómico de red para consumir la API v2 y acciones de comprobantes.
+ * @description Servicio atómico de red para consumir el CRUD directo de la API v2 (comprobantes_final).
  */
 
 const API_V2_URL = 'https://automat-gaukapi.fyi6ur.easypanel.host/api/v2/comprobantes';
@@ -33,7 +33,7 @@ function obtenerIdentificadorValido(identificador, fallbackPayload = {}) {
 }
 
 /**
- * Carga paginada de comprobantes
+ * Carga paginada de comprobantes directamente desde la API V2
  */
 export async function fetchComprobantesPaginados(params = {}) {
   try {
@@ -59,7 +59,7 @@ export async function fetchComprobantesPaginados(params = {}) {
 }
 
 /**
- * Guarda cambios de un comprobante editado
+ * Guarda cambios de un comprobante editado (PUT directo a comprobantes_final)
  */
 export async function guardarCambiosComprobante(hashLargo, payload = {}, loteActivo = 'T070') {
   try {
@@ -94,7 +94,8 @@ export async function solicitarRelecturaIA(hashLargo) {
       throw new Error('No se proporcionó un hash o ID válido para releer con IA');
     }
 
-    const res = await fetch(`${API_V2_URL}/${encodeURIComponent(idValido)}/releer-ia`, {
+    // Alineado con la ruta /:hashLargo/releer de comprobantesRoutes.js
+    const res = await fetch(`${API_V2_URL}/${encodeURIComponent(idValido)}/releer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -108,7 +109,7 @@ export async function solicitarRelecturaIA(hashLargo) {
 }
 
 /**
- * Elimina un comprobante por su hash o ID
+ * Elimina un comprobante por su hash o ID en la tabla comprobantes_final
  */
 export async function eliminarComprobantePorHash(hashLargo) {
   try {
