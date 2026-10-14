@@ -1,7 +1,6 @@
 /**
  * @file comprobantesState.js
- * Configuración optimizada: Consulta hasta 500 registros a la API, cap en DOM de 300 ítems,
- * reactividad garantizada por propagación y cortafuegos atómico 2x.
+ * Estado reactivo Alpine.js con Paginación Real Servidor + Buffer Incremental.
  */
 
 import { 
@@ -37,15 +36,17 @@ export function comprobantesState() {
   const { fechaInicio: inicioMes, fechaFin: finMes } = obtenerRangoMesActualCaracas();
 
   const state = {
-    // 1. ESTADO DE DATOS Y CAPACIDAD AMPLIADA
-    todosLosItems: [],
-    items: [],
+    // 1. CONTROL DE PAGINACIÓN SERVIDOR + DOM
+    paginaAPI: 1,       // Página actual enviada al Backend
+    limitAPI: 50,       // Lote que pedimos por llamada a la API
+    todosLosItems: [],  // Buffer acumulado en memoria
+    items: [],          // Visibles en pantalla
     directorio: [], 
     cargando: false, 
     hayMasDatos: true,
     
     tamanoLote: 20,
-    capMaximoDOM: 300, // 🟢 Límite ampliado a 300 en pantalla
+    capMaximoDOM: 300,  // Límite máximo en pantalla
 
     modalAbierto: false, 
     itemEdicion: null,
@@ -101,21 +102,23 @@ export function comprobantesState() {
     async resetearYRefrescar() {
       this.items = [];
       this.todosLosItems = [];
+      this.paginaAPI = 1;
       this.hayMasDatos = true;
       this.cargando = false;
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 CARGA CON CONSULTA AUMENTADA Y REACTIVIDAD EXPLÍCITA
+    // 🟢 PAGINACIÓN REAL CONTRA LA API + REVELADO PROGRESIVO DE 20 EN 20
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
 
       try {
-        if (this.todosLosItems.length === 0) {
+        // A) Si el buffer local no tiene suficientes elementos para mostrar un nuevo lote de 20, pedimos más a la API
+        if (this.items.length + this.tamanoLote > this.todosLosItems.length) {
           const params = {
-            page: 1,
-            limit: 500, // 🟢 Elevado de 200 a 500 para traer todos los registros nuevos
+            page: this.paginaAPI,
+            limit: this.limitAPI,
             socio: this.filtroSocio, 
             rol: this.filtroRol,
             fechaInicio: this.filtroFechaInicio, 
@@ -125,34 +128,45 @@ export function comprobantesState() {
           const raw = await fetchComprobantesPaginados(params);
           const lista = Array.isArray(raw) ? raw : (raw?.datos || raw?.comprobantes || []);
 
-          const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
+          if (lista.length === 0) {
+            this.hayMasDatos = false;
+          } else {
+            const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-          // Cortafuegos de 2 socios (x2)
-          this.todosLosItems = mapeados.filter(item => {
-            const s2 = String(item.nombre_socio_2 || item.socio_2 || item.grupo_2?.grupo || '').toUpperCase().trim();
-            const es2xValido = s2 !== '' && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO';
-            return item.es_x2 || es2xValido;
-          });
+            // Cortafuegos de 2 socios (x2)
+            const depurados2x = mapeados.filter(item => {
+              const s2 = String(item.nombre_socio_2 || item.socio_2 || item.grupo_2?.grupo || '').toUpperCase().trim();
+              const es2xValido = s2 !== '' && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO';
+              return item.es_x2 || es2xValido;
+            });
+
+            // Evitar duplicados por HASH / ID
+            const idsExistentes = new Set(this.todosLosItems.map(i => String(i.id || i.hash_largo)));
+            const nuevosUnicos = depurados2x.filter(i => !idsExistentes.has(String(i.id || i.hash_largo)));
+
+            this.todosLosItems = [...this.todosLosItems, ...nuevosUnicos];
+            this.paginaAPI++;
+
+            // Si la API devolvió menos del límite solicitado, ya se agotó la base de datos
+            if (lista.length < this.limitAPI) {
+              this.hayMasDatos = false;
+            }
+          }
         }
 
-        if (this.todosLosItems.length === 0) {
-          this.items = [];
-          this.hayMasDatos = false;
-          return;
-        }
-
-        // Calcular siguiente lote (+20)
+        // B) Revelar el siguiente lote de 20 en el DOM
         const proximoLimite = Math.min(
           this.items.length + this.tamanoLote,
           this.capMaximoDOM,
           this.todosLosItems.length
         );
 
-        // 🟢 PROPAGACIÓN EXPLÍCITA QUE OBLIGA A ALPINE A RE-RENDERIZAR EN DOM
         this.items = [...this.todosLosItems.slice(0, proximoLimite)];
 
-        // Evaluar si quedan más datos pendientes
-        this.hayMasDatos = this.items.length < this.todosLosItems.length && this.items.length < this.capMaximoDOM;
+        // Si ya alcanzamos el tope máximo en DOM (300) o se agotó el buffer y la API
+        if (this.items.length >= this.capMaximoDOM) {
+          this.hayMasDatos = false;
+        }
 
       } catch (err) {
         console.error('❌ Error al cargar lote de comprobantes:', err);
@@ -163,7 +177,7 @@ export function comprobantesState() {
       }
     },
 
-    // 🟢 DETECTOR DE SCROLL CON CAPTURA Y SONDEO
+    // 🟢 DETECTOR DE SCROLL ULTRA-SENSIBLE
     iniciarEscuchadoresScroll() {
       this.$nextTick(() => {
         const intentarCargar = () => {
@@ -180,16 +194,13 @@ export function comprobantesState() {
           }
         };
 
-        // Escuchadores en fase de captura para contenedores internos
         document.addEventListener('scroll', intentarCargar, { capture: true, passive: true });
         window.addEventListener('scroll', intentarCargar, { passive: true });
         document.addEventListener('wheel', intentarCargar, { capture: true, passive: true });
         document.addEventListener('touchmove', intentarCargar, { capture: true, passive: true });
 
-        // Sondeo activo
         setInterval(intentarCargar, 250);
 
-        // IntersectionObserver
         const sentinel = document.getElementById('sentinel-scroll');
         if (sentinel) {
           const observer = new IntersectionObserver((entries) => {
