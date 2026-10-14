@@ -1,7 +1,7 @@
 /**
  * @file comprobantesModalActions.js
  * @path public/js/modules/comprobantes/services/comprobantesModalActions.js
- * @description Acciones atómicas blindadas para el modal de comprobantes.
+ * @description Acciones atómicas blindadas para el modal de comprobantes (CRUD sobre comprobantes_final).
  */
 import { 
   guardarCambiosComprobante, 
@@ -19,18 +19,18 @@ export function crearAccionesModal(state) {
         // 1. Clonado profundo raw del item que viene del backend
         const itemClonado = JSON.parse(JSON.stringify(item));
 
-        // 2. Mapeo preliminar
+        // 2. Mapeo preliminar desde la API v2
         const itemMapeado = typeof prepararEdicionComprobante === 'function' 
-          ? prepararEdicionComprobante(itemClonado, state.loteActivo || 'T063') 
+          ? prepararEdicionComprobante(itemClonado, state.loteActivo || 'T071') 
           : { ...itemClonado };
 
-        // 3. BLINDAJE: Si el mapper borró los socios o montos netos, restaurar los del backend
+        // 3. BLINDAJE DINÁMICO: Prioriza los valores devueltos por comprobantes_final
         state.itemEdicion = {
           ...itemMapeado,
-          socio_1: (itemMapeado.socio_1 && itemMapeado.socio_1 !== 'GENERAL') ? itemMapeado.socio_1 : (item.nombre_socio_1 || item.socio_1 || 'NELSY'),
-          socio_2: (itemMapeado.socio_2 && itemMapeado.socio_2 !== 'GENERAL') ? itemMapeado.socio_2 : (item.nombre_socio_2 || item.socio_2 || 'MERLI'),
-          monto_1: item.monto_1 !== null && item.monto_1 !== undefined ? item.monto_1 : (itemMapeado.monto_1 || item.me1),
-          monto_2: item.monto_2 !== null && item.monto_2 !== undefined ? item.monto_2 : (itemMapeado.monto_2 || item.me2)
+          socio_1: itemMapeado.socio_1 || item.nombre_socio_1 || item.socio_1 || 'GENERAL',
+          socio_2: itemMapeado.socio_2 || item.nombre_socio_2 || item.socio_2 || 'GENERAL',
+          monto_1: itemMapeado.monto_1 ?? item.monto_1 ?? item.m1_socio ?? item.me1 ?? 0,
+          monto_2: itemMapeado.monto_2 ?? item.monto_2 ?? item.m2_socio ?? item.me2 ?? 0
         };
 
       } catch (e) {
@@ -52,23 +52,44 @@ export function crearAccionesModal(state) {
     },
 
     async guardarCambios() {
-      if (await guardarCambiosComprobante(state.itemEdicion?.hash_largo, state.itemEdicion, state.loteActivo)) {
+      if (!state.itemEdicion) return;
+
+      const hashLargo = state.itemEdicion.hash_largo || state.itemEdicion.id;
+      const guardadoExitoso = await guardarCambiosComprobante(hashLargo, state.itemEdicion, state.loteActivo);
+
+      if (guardadoExitoso) {
         state.modalAbierto = false;
-        await state.cargarComprobantes();
+        if (typeof state.cargarComprobantes === 'function') {
+          await state.cargarComprobantes();
+        }
       }
     },
 
     async releerIAModal() {
-      if (await solicitarRelecturaIA(state.itemEdicion?.hash_largo)) {
+      if (!state.itemEdicion) return;
+
+      const hashLargo = state.itemEdicion.hash_largo || state.itemEdicion.id;
+      const relecturaExitosa = await solicitarRelecturaIA(hashLargo);
+
+      if (relecturaExitosa) {
         state.modalAbierto = false;
-        await state.cargarComprobantes();
+        if (typeof state.cargarComprobantes === 'function') {
+          await state.cargarComprobantes();
+        }
       }
     },
 
     async eliminarComprobante(hashLargo) {
-      if (await eliminarComprobantePorHash(hashLargo)) {
+      const targetHash = hashLargo || state.itemEdicion?.hash_largo || state.itemEdicion?.id;
+      if (!targetHash) return;
+
+      const eliminadoExitoso = await eliminarComprobantePorHash(targetHash);
+
+      if (eliminadoExitoso) {
         state.modalAbierto = false;
-        await state.cargarComprobantes();
+        if (typeof state.cargarComprobantes === 'function') {
+          await state.cargarComprobantes();
+        }
       }
     }
   };
