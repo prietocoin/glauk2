@@ -1,6 +1,7 @@
 /**
  * @file comprobantesState.js
- * Estado reactivo Alpine.js con soporte atómico de Infinite Scroll y tope DOM (200 cards max).
+ * Estado reactivo Alpine.js con filtro automático de Mes en Curso (America/Caracas),
+ * Infinite Scroll en lotes de 20 y tope máximo DOM de 200 tarjetas.
  */
 
 import { 
@@ -19,7 +20,27 @@ import { prepararEdicionComprobante, obtenerInsigniaRol } from '../services/comp
 import { filtrarComprobantesAtómico } from '../services/comprobantesFilterService.js';
 import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/comprobantesSaldosService.js';
 
+/**
+ * Calcula el primer y último día del mes en curso en zona horaria America/Caracas (YYYY-MM-DD)
+ */
+function obtenerRangoMesActualCaracas() {
+  const timeZone = 'America/Caracas';
+  const ahora = new Date();
+
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+  const primerDia = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+  const fechaInicio = fmt.format(primerDia);
+
+  const ultimoDia = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
+  const fechaFin = fmt.format(ultimoDia);
+
+  return { fechaInicio, fechaFin };
+}
+
 export function comprobantesState() {
+  const { fechaInicio: inicioMes, fechaFin: finMes } = obtenerRangoMesActualCaracas();
+
   const state = {
     // 1. ESTADO REACTIVO Y CONTROLES DE PAGINACIÓN
     items: [], 
@@ -37,8 +58,11 @@ export function comprobantesState() {
 
     filtroRol: '', 
     filtroSocio: '', 
-    filtroFechaInicio: '', 
-    filtroFechaFin: '',
+    
+    // 🟢 RANGO AUTOMÁTICO DE MES EN CURSO
+    filtroFechaInicio: inicioMes, 
+    filtroFechaFin: finMes,
+    
     filtroDesdeHash: '', 
     filtroHastaHash: '', 
     filtroOrden: 'fecha_desc',
@@ -76,7 +100,6 @@ export function comprobantesState() {
       this.resetearYRefrescar();
     },
 
-    // 🟢 ALIAS REQUERIDO POR VISTAS / EVENTOS EJS
     async cargarComprobantes(silencioso = false) {
       return this.resetearYRefrescar();
     },
@@ -89,7 +112,7 @@ export function comprobantesState() {
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 CARGA PAGINADA EN LOTES DE 20 CON CAP MÁXIMO DE 200 ELEMENTOS EN DOM
+    // 🟢 CARGA PAGINADA EN LOTES DE 20
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
@@ -112,7 +135,7 @@ export function comprobantesState() {
 
         const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-        // Aplica cortafuegos de 2 socios obligatorios (x2)
+        // Aplica cortafuegos de 2 socios obligatorios (x2) y filtros de fecha
         const filtrados = filtrarComprobantesAtómico(mapeados, this.directorio, {
           filtroSocio: this.filtroSocio,
           filtroFechaInicio: this.filtroFechaInicio,
@@ -121,19 +144,18 @@ export function comprobantesState() {
           filtroOrden: this.filtroOrden
         });
 
-        // Acumular respetando el CAP estricto de 200 elementos
+        // Acumular respetando el CAP de 200 elementos
         let acumulados = [...this.items, ...filtrados];
         
         if (acumulados.length >= this.capMaximoDOM) {
           acumulados = acumulados.slice(0, this.capMaximoDOM);
-          this.hayMasDatos = false; // Detener scroll infinito al llegar a 200
+          this.hayMasDatos = false;
         }
 
         this.items = acumulados;
         this.comprobantes = acumulados;
         this.paginaActual++;
 
-        // 🟢 AUTO-REFILL: Si el filtro descartó registros y la pantalla quedó con pocos ítems, pedir la siguiente página
         if (this.items.length < 10 && this.hayMasDatos) {
           this.cargando = false;
           return this.cargarSiguientePagina();
@@ -157,7 +179,6 @@ export function comprobantesState() {
       if (sentinel) observer.observe(sentinel);
     },
 
-    // 🟢 ELIMINACIÓN ATÓMICA DE TARJETAS
     async eliminarComprobante(identificador) {
       if (!identificador) return;
 
@@ -172,7 +193,6 @@ export function comprobantesState() {
       } catch (err) {
         console.error('❌ Error al eliminar en API:', err);
       } finally {
-        // Remoción inmediata en interfaz reactiva
         this.items = this.items.filter(item => {
           return (
             String(item.hash_largo || '') !== idStr &&
@@ -186,7 +206,6 @@ export function comprobantesState() {
       }
     },
 
-    // 4. FORMATEADORES EXPORTADOS
     formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia, formatDiaHora
   };
 
