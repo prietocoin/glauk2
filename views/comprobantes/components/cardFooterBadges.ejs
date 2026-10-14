@@ -58,17 +58,17 @@
   <!-- METADATOS, BADGES Y BOTONERA (40% restante) -->
   <div class="flex-1 min-w-0 flex flex-col justify-between gap-1 py-0.5 relative z-10">
     
-    <!-- 1. 📅 FECHA -->
-    <div class="w-full text-center py-0.5 rounded bg-cyan-950/90 text-cyan-300 font-mono text-[8px] sm:text-[9px] font-bold border border-cyan-500/50 shadow truncate px-0.5"
-         title="Fecha del comprobante">
-      📅 <span x-text="fechaTexto"></span>
-    </div>
+   <!-- 1. 📅 FECHA -->
+<div class="w-full text-center py-0.5 rounded bg-cyan-950/90 text-cyan-300 font-mono text-[8px] sm:text-[9px] font-bold border border-cyan-500/50 shadow truncate px-0.5"
+     title="Fecha del comprobante">
+  📅 <span x-text="item.fecha_fmt || 'S/F'"></span>
+</div>
 
-    <!-- 2. 🕒 DÍA Y HORA -->
-    <div class="w-full text-center py-0.5 rounded bg-indigo-950/90 text-indigo-300 font-mono text-[8px] sm:text-[9px] font-bold border border-indigo-500/50 shadow truncate px-0.5"
-         title="Día y Hora exacta">
-      🕒 <span x-text="horaTexto"></span>
-    </div>
+<!-- 2. 🕒 DÍA Y HORA -->
+<div class="w-full text-center py-0.5 rounded bg-indigo-950/90 text-indigo-300 font-mono text-[8px] sm:text-[9px] font-bold border border-indigo-500/50 shadow truncate px-0.5"
+     title="Día y Hora exacta">
+  🕒 <span x-text="item.hora_fmt || 'S/F'"></span>
+</div>
 
     <!-- 3. 🔑 HASH CORTO -->
     <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-300 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700/80 truncate px-0.5 shadow flex items-center justify-center gap-1" 
