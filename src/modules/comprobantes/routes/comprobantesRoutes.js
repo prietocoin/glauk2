@@ -22,8 +22,9 @@ router.post('/liquidar', liquidarComprobante);
 // Re-lectura con IA
 router.post('/:hashLargo/releer', releerIA);
 
-// Actualización / Edición directa en comprobantes_final
+// Actualización directa en comprobantes_final (con y sin parámetro en URL)
 router.put('/:hashLargo', updateComprobante);
+router.put('/', updateComprobante); // Fallback si el hash viene en req.body
 
 // Borrado directo en comprobantes_final
 router.delete('/:hashLargo', deleteComprobante);
