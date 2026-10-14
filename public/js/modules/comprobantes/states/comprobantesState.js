@@ -91,7 +91,7 @@ export function comprobantesState() {
       });
     },
 
-    // 🟢 ESCUCHAR EVENTO GLOBAL DE GUARDADO DE MODAL
+    // 🟢 ESCUCHAR EVENTO GLOBAL DE GUARDADO DE MODAL (SIN PERDER 2X NI NADA EN REACTIVIDAD)
     escucharActualizacionesGlobales() {
       window.addEventListener('comprobante-actualizado', (evt) => {
         const payload = evt.detail;
@@ -99,16 +99,28 @@ export function comprobantesState() {
 
         const targetHash = String(payload.hash_largo).trim().toLowerCase();
 
-        // Actualizar en el buffer de items visibles
-        const idxVisibles = this.items.findIndex(i => String(i.hash_largo || i.id).trim().toLowerCase() === targetHash);
-        if (idxVisibles !== -1) {
-          this.items[idxVisibles] = prepararEdicionComprobante({ ...this.items[idxVisibles], ...payload }, this.loteActivo);
-        }
-
-        // Actualizar en el buffer acumulado
+        // 1. Actualizar en el buffer acumulado
         const idxTodos = this.todosLosItems.findIndex(i => String(i.hash_largo || i.id).trim().toLowerCase() === targetHash);
         if (idxTodos !== -1) {
-          this.todosLosItems[idxTodos] = prepararEdicionComprobante({ ...this.todosLosItems[idxTodos], ...payload }, this.loteActivo);
+          this.todosLosItems[idxTodos] = prepararEdicionComprobante({ 
+            ...this.todosLosItems[idxTodos], 
+            ...payload 
+          }, this.loteActivo);
+        }
+
+        // 2. Actualizar en los ítems visibles e indicar reactividad a Alpine
+        const idxVisibles = this.items.findIndex(i => String(i.hash_largo || i.id).trim().toLowerCase() === targetHash);
+        if (idxVisibles !== -1) {
+          this.items[idxVisibles] = prepararEdicionComprobante({ 
+            ...this.items[idxVisibles], 
+            ...payload 
+          }, this.loteActivo);
+          
+          // Forzar re-render en Alpine.js
+          this.items = [...this.items];
+        } else if (idxTodos === -1) {
+          // Si el elemento no existía en el buffer, refrescar el lote
+          this.resetearYRefrescar();
         }
       });
     },
@@ -131,7 +143,7 @@ export function comprobantesState() {
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 PAGINACIÓN REAL CONTRA LA API + REVELADO PROGRESIVO
+    // 🟢 PAGINACIÓN REAL CONTRA LA API + REVELADO PROGRESIVO DE 20 EN 20
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
