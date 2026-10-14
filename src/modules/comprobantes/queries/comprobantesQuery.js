@@ -1,67 +1,65 @@
 /**
  * @file comprobantesQuery.js
- * @description Capa de acceso a datos (Query) pura para la tabla comprobantes_final.
+ * @description Consulta directa a la Single Source of Truth asegurando renderizado 2x.
  */
 const db = require('#config/database');
 
-function obtenerInicioMesCaracas() {
-  const timeZone = 'America/Caracas';
-  const ahora = new Date();
-  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
-  
-  const primerDia = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-  return `${fmt.format(primerDia)} 00:00:00`;
-}
+async function obtenerComprobantesFinalPaginados(filtros = {}) {
+  const { page = 1, limit = 50, socio = '', fechaInicio = '', fechaFin = '' } = filtros;
+  const offset = (page - 1) * limit;
 
-/**
- * Consulta la tabla comprobantes_final de forma directa, rápida y modulada.
- */
-async function obtenerComprobantesCompletos(socio = null, opciones = {}) {
-  const params = [];
-  let paramIndex = 1;
+  let whereClauses = ['1=1'];
+  let params = [];
 
-  let whereClause = "WHERE 1=1";
-
-  // 1. FILTRO DE RANGO DE FECHAS (MES ACTUAL POR DEFECTO)
-  const fechaInicioStr = opciones.fechaInicio ? `${opciones.fechaInicio} 00:00:00` : obtenerInicioMesCaracas();
-  whereClause += ` AND (fecha_hora_iso >= $${paramIndex} OR fecha_fmt >= $${paramIndex})`;
-  params.push(fechaInicioStr);
-  paramIndex++;
-
-  if (opciones.fechaFin) {
-    whereClause += ` AND (fecha_hora_iso <= $${paramIndex} OR fecha_fmt <= $${paramIndex})`;
-    params.push(`${opciones.fechaFin} 23:59:59`);
-    paramIndex++;
+  if (socio) {
+    params.push(`%${socio.trim().toLowerCase()}%`);
+    whereClauses.push(`(LOWER(nombre_socio_1) LIKE $${params.length} OR LOWER(nombre_socio_2) LIKE $${params.length})`);
   }
 
-  // 2. FILTRO DE SOCIO (Socio 1 o Socio 2)
-  if (socio && socio.trim() !== '' && socio !== 'undefined' && socio !== 'null' && socio.toUpperCase() !== 'TODOS') {
-    whereClause += ` AND (
-      LOWER(COALESCE(nombre_socio_1, socio_1, '')) LIKE LOWER($${paramIndex}) OR
-      LOWER(COALESCE(nombre_socio_2, socio_2, '')) LIKE LOWER($${paramIndex}) OR
-      LOWER(COALESCE(titular, '')) LIKE LOWER($${paramIndex})
-    )`;
-    params.push(`%${socio.trim()}%`);
-    paramIndex++;
+  if (fechaInicio) {
+    params.push(fechaInicio);
+    whereClauses.push(`fecha_hora_input >= $${params.length}`);
   }
 
-  // 3. PAGINACIÓN Y LÍMITE DINÁMICO
-  const limitValue = parseInt(opciones.limit, 10) || 500;
-  const pageValue = parseInt(opciones.page, 10) || 1;
-  const offsetValue = (pageValue - 1) * limitValue;
+  if (fechaFin) {
+    params.push(fechaFin);
+    whereClauses.push(`fecha_hora_input <= $${params.length}`);
+  }
 
-  const sql = `
-    SELECT *
+  const query = `
+    SELECT 
+      hash_largo,
+      COALESCE(banco, 'BANCO') AS banco,
+      COALESCE(referencia, 'N/A') AS referencia,
+      COALESCE(titular, 'TITULAR NO DEFINIDO') AS titular,
+      COALESCE(monto, 0) AS monto,
+      COALESCE(moneda, 'USDT') AS moneda,
+      COALESCE(nombre_socio_1, 'GENERAL') AS nombre_socio_1,
+      COALESCE(socio_1, 'GENERAL') AS socio_1,
+      COALESCE(monto_1, m1_socio, monto, 0) AS monto_1,
+      COALESCE(tasa_1, 1.0) AS tasa_1,
+      COALESCE(me1, 0) AS me1,
+      COALESCE(nombre_socio_2, 'GENERAL') AS nombre_socio_2,
+      COALESCE(socio_2, 'GENERAL') AS socio_2,
+      COALESCE(monto_2, m2_socio, monto, 0) AS monto_2,
+      COALESCE(tasa_2, 1.0) AS tasa_2,
+      COALESCE(me2, 0) AS me2,
+      COALESCE(lote_tasa, 'T070') AS lote_tasa,
+      COALESCE(tipo_op1, 'D') AS tipo_op1,
+      COALESCE(tipo_op2, 'D') AS tipo_op2,
+      url_imagen,
+      fecha_hora_input,
+      creado_en
     FROM comprobantes_final
-    ${whereClause}
-    ORDER BY fecha_hora_iso DESC
-    LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
+    WHERE ${whereClauses.join(' AND ')}
+    ORDER BY creado_en DESC
+    LIMIT $${params.length + 1} OFFSET $${params.length + 2};
   `;
 
-  params.push(limitValue, offsetValue);
+  params.push(limit, offset);
 
-  const { rows } = await db.query(sql, params);
-  return rows || [];
+  const { rows } = await db.query(query, params);
+  return rows;
 }
 
-module.exports = { obtenerComprobantesCompletos };
+module.exports = { obtenerComprobantesFinalPaginados };
