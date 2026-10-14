@@ -1,6 +1,6 @@
 /**
  * @file comprobantesState.js
- * Estado reactivo Alpine.js con Paginación Real Servidor + Buffer Incremental.
+ * Estado reactivo Alpine.js con Paginación Real Servidor + Buffer Incremental desde comprobantes_final.
  */
 
 import { 
@@ -126,18 +126,20 @@ export function comprobantesState() {
           };
 
           const raw = await fetchComprobantesPaginados(params);
-          const lista = Array.isArray(raw) ? raw : (raw?.datos || raw?.comprobantes || []);
+          const lista = Array.isArray(raw) ? raw : (raw?.datos || raw?.comprobantes || raw?.data || []);
 
           if (lista.length === 0) {
             this.hayMasDatos = false;
           } else {
             const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-            // Cortafuegos de 2 socios (x2)
+            // Cortafuegos de 2 socios (x2) aprovechando comprobantes_final
             const depurados2x = mapeados.filter(item => {
+              if (typeof item.es_x2 === 'boolean') {
+                return item.es_x2;
+              }
               const s2 = String(item.nombre_socio_2 || item.socio_2 || item.grupo_2?.grupo || '').toUpperCase().trim();
-              const es2xValido = s2 !== '' && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO';
-              return item.es_x2 || es2xValido;
+              return s2 !== '' && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO';
             });
 
             // Evitar duplicados por HASH / ID
@@ -163,7 +165,7 @@ export function comprobantesState() {
 
         this.items = [...this.todosLosItems.slice(0, proximoLimite)];
 
-        // Si ya alcanzamos el tope máximo en DOM (300) o se agotó el buffer y la API
+        // Si alcanzamos el tope máximo en DOM (300) o se agotó el buffer y la API
         if (this.items.length >= this.capMaximoDOM) {
           this.hayMasDatos = false;
         }
