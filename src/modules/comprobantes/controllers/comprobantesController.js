@@ -1,60 +1,38 @@
 /**
  * @file comprobantesController.js
- * @description Controlador HTTP orquestador modular para el CRUD de comprobantes_final.
  */
-
-// 🟢 Asegúrate de importar la función correcta que definimos para la V2
+// 🟢 1. Importar el nombre real exportado por comprobantesQuery.js
 const { obtenerComprobantesFinalPaginados } = require('../queries/comprobantesQuery');
 const { eliminarComprobante } = require('../services/comprobantesBorradoService');
 const { releerIA } = require('../services/comprobantesIaService');
 const { liquidarComprobante, actualizarComprobante } = require('../services/comprobantesSnapshotService');
 
-/**
- * 🟢 Lectura principal invocando la capa Query aislada (SSoT)
- */
 async function getComprobantes(req, res) {
   try {
-    // Extraemos todos los posibles nombres de parámetros (camelCase y snake_case)
     const { 
-      socio, 
-      limit, 
-      page, 
-      fechaInicio, 
-      fechaFin, 
-      fecha_inicio, 
-      fecha_fin 
+      socio = '', 
+      limit = 50, 
+      page = 1, 
+      fechaInicio = '', 
+      fechaFin = '', 
+      fecha_inicio = '', 
+      fecha_fin = '' 
     } = req.query;
-    
-    // Delegación directa a la capa Query de la V2
-    const rows = await obtenerComprobantesFinalPaginados({ 
-      socio, 
-      limit, 
-      page, 
-      fechaInicio: fechaInicio || fecha_inicio, 
-      fechaFin: fechaFin || fecha_fin 
+
+    // 🟢 2. Ejecutar la función correcta pasando los parámetros en un solo objeto
+    const rows = await obtenerComprobantesFinalPaginados({
+      socio,
+      limit: parseInt(limit, 10) || 50,
+      page: parseInt(page, 10) || 1,
+      fechaInicio: fechaInicio || fecha_inicio,
+      fechaFin: fechaFin || fecha_fin
     });
 
-    // Sanitización liviana en memoria (asegurar números y manejar "N/A")
-    const comprobantesLimpios = rows.map((item) => {
-      const numT1 = (item.tasa_1 === 'N/A' || isNaN(item.tasa_1) || item.tasa_1 === null) ? 0 : Number(item.tasa_1);
-      const numT2 = (item.tasa_2 === 'N/A' || isNaN(item.tasa_2) || item.tasa_2 === null) ? 0 : Number(item.tasa_2);
-
-      return {
-        ...item,
-        tasa_1: numT1,
-        tasa_2: numT2,
-        monto_1: Number(item.monto_1 ?? item.m1_socio ?? 0),
-        monto_2: Number(item.monto_2 ?? item.m2_socio ?? 0),
-        m1_socio: Number(item.m1_socio ?? item.monto_1 ?? 0),
-        m2_socio: Number(item.m2_socio ?? item.monto_2 ?? 0)
-      };
-    });
-
-    return res.status(200).json(comprobantesLimpios);
+    return res.status(200).json(rows);
   } catch (err) {
-    console.error('[comprobantesController ❌ Error]:', err.message);
-    // Devolvemos 500 en lugar de 200 con un array vacío para no esconder el error en la red.
-    return res.status(500).json({ success: false, error: 'Error al consultar comprobantes.' });
+    console.error('❌ [comprobantesController Error]:', err.message);
+    // 🟢 3. Si algo falla en la SQL, enviar el error al navegador para verlo en F12
+    return res.status(500).json({ error: err.message });
   }
 }
 
