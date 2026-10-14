@@ -125,7 +125,7 @@
                     <label class="block text-[8px] font-bold text-emerald-400 uppercase mb-0.5">Moneda Recibo</label>
                     <select x-model="itemEdicion.moneda" 
                             class="w-full bg-[#080e26] border border-emerald-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
-                      <template x-for="m in ['ARS','COP','USD','USDT','VES','PEN','CLP']" :key="m">
+                      <template x-for="m in ['USD','USDT','ECU','VES','COP','PEN','ARS','BRL','CLP','MXN','PYG','BOB','EUR','CAD','GBP']" :key="m">
                         <option :value="m" x-text="m"></option>
                       </template>
                     </select>
