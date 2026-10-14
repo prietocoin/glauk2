@@ -3,9 +3,9 @@
 <!-- UBICACIÓN: views/comprobantes/components/                         -->
 <!-- ================================================================= -->
 
-<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-5 min-h-[400px]">
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-5 min-h-[300px]">
   
-  <!-- BUCLE VINCULADO A ITEMS VISIBLES EN DOM -->
+  <!-- BUCLE VINCULADO STRICTAMENTE A ITEMS (2X VALIDADOS) -->
   <template x-for="(item, index) in items" :key="(item.hash_largo || item.id || item.referencia || 'item-') + index">
     
     <div class="bg-[#060c24] border border-[#16224f] hover:border-cyan-500/40 rounded-2xl p-3 md:p-4 shadow-xl flex flex-col justify-between gap-2.5 transition-all relative">
@@ -18,19 +18,19 @@
 
 </div>
 
-<!-- CENTINELA DE SCROLL INFINITO (GARANTIZA DETECCIÓN) -->
-<div id="sentinel-scroll" class="w-full py-12 my-4 flex flex-col justify-center items-center gap-2 min-h-[120px] relative z-50">
+<!-- CENTINELA DE SCROLL INFINITO DE ALTA PROXIMIDAD -->
+<div id="sentinel-scroll" class="w-full py-12 my-6 flex flex-col justify-center items-center gap-2 min-h-[120px] relative z-50">
   
-  <!-- CARGANDO Siguiente Lote de 20 -->
+  <!-- INDICADOR DE CARGA -->
   <div x-show="cargando" class="flex items-center gap-2 text-cyan-400 text-xs font-mono animate-pulse bg-slate-900/90 px-5 py-2.5 rounded-full border border-cyan-500/40 shadow-xl">
     <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
-    <span>Cargando más comprobantes...</span>
+    <span>Cargando más comprobantes 2x...</span>
   </div>
 
-  <!-- BARRERA DE FIN O LÍMITE DE 200 -->
+  <!-- FIN DE CARGA O LÍMITE DE 200 -->
   <div x-show="!cargando && !hayMasDatos && items.length > 0" class="text-center py-2.5 px-5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 text-xs font-mono shadow-lg">
-    <span x-text="items.length >= capMaximoDOM ? '⚡ Límite máximo de 200 tarjetas alcanzado en pantalla' : '✅ Todos los comprobantes del mes han sido cargados'"></span>
-    <span class="block text-[10px] text-slate-500 mt-0.5" x-text="'Mostrando ' + items.length + ' de ' + todosLosItems.length + ' ítems'"></span>
+    <span x-text="items.length >= capMaximoDOM ? '⚡ Límite máximo de 200 tarjetas alcanzado en pantalla' : '✅ Todos los comprobantes 2x han sido cargados'"></span>
+    <span class="block text-[10px] text-slate-500 mt-0.5" x-text="'Mostrando ' + items.length + ' de ' + todosLosItems.length + ' ítems 2x'"></span>
   </div>
 
 </div>
