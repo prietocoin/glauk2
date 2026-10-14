@@ -8,10 +8,10 @@ const router = express.Router();
 router.use('/tasas', require('../modules/tasas/routes/tasasRoutes'));
 router.use('/directorio', require('../modules/directorio/routes/directorioRoutes'));
 router.use('/reportes', require('../modules/reportes/routes/reportesRoutes'));
-router.use('/comprobantes', require('../modules/comprobantes/routes/comprobantesRoutes'));
 
-// 🟢 MONTA LA BASE EN /v2/comprobantes
-router.use('/v2/comprobantes', require('../modules/comprobantes/routes/apiRoutes'));
+// 🟢 MÓDULO ÚNICO Y DESACOPLADO V2 SOBRE COMPROBANTES_FINAL
+router.use('/comprobantes', require('../modules/comprobantes/routes/comprobantesRoutes'));
+router.use('/v2/comprobantes', require('../modules/comprobantes/routes/comprobantesRoutes'));
 
 router.use('/admin', require('../modules/admin/routes/adminRoutes'));
 
