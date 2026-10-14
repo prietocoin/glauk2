@@ -6,7 +6,7 @@
 
 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-5">
   
-  <!-- BUCLE VINCULADO A ITEMS -->
+  <!-- BUCLE VINCULADO A ITEMS VISIBLES EN DOM -->
   <template x-for="(item, index) in items" :key="(item.hash_largo || item.id || item.referencia || 'item-') + index">
     
     <div class="bg-[#060c24] border border-[#16224f] hover:border-cyan-500/40 rounded-2xl p-3 md:p-4 shadow-xl flex flex-col justify-between gap-2.5 transition-all relative">
@@ -22,21 +22,23 @@
 </div>
 
 <!-- CENTINELA SCROLL INFINITO (LOTES DE 20 -> MÁX 200 CARDS) -->
-<div id="sentinel-scroll" class="w-full py-8 flex flex-col justify-center items-center gap-2">
+<div id="sentinel-scroll" 
+     class="w-full py-10 flex flex-col justify-center items-center gap-2 min-h-[100px]"
+     x-intersect.margin.200px="cargarSiguientePagina()">
   
   <!-- INDICADOR DE CARGA EN PROGRESO -->
   <template x-if="cargando">
-    <div class="flex items-center gap-2 text-cyan-400 text-xs font-mono animate-pulse bg-slate-900/80 px-4 py-2 rounded-full border border-cyan-500/30">
+    <div class="flex items-center gap-2 text-cyan-400 text-xs font-mono animate-pulse bg-slate-900/90 px-4 py-2 rounded-full border border-cyan-500/30 shadow-lg">
       <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
       <span>Cargando siguiente lote de 20 comprobantes...</span>
     </div>
   </template>
 
-  <!-- LÍMITE DE 200 ALCANZADO O FIN DE DATOS -->
+  <!-- LÍMITE ALCANZADO O FIN DE REGISTROS -->
   <template x-if="!cargando && !hayMasDatos && items.length > 0">
     <div class="text-center py-2 px-4 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-400 text-[11px] font-mono">
       <span x-text="items.length >= capMaximoDOM ? '⚡ Límite máximo de 200 tarjetas alcanzado en pantalla' : '✅ Todos los comprobantes han sido cargados'"></span>
-      <span class="block text-[9px] text-slate-500 mt-0.5" x-text="'Mostrando ' + items.length + ' ítems en pantalla'"></span>
+      <span class="block text-[9px] text-slate-500 mt-0.5" x-text="'Mostrando ' + items.length + ' de ' + todosLosItems.length + ' ítems'"></span>
     </div>
   </template>
 
