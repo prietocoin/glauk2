@@ -1,152 +1,118 @@
-/**
- * @file comprobantesMapperService.js
- * @description Mapeador atómico del frontend para la API v2.
- * Preserva compatibilidad total con modales, badges y componentes del DOM.
- */
+<!-- ================================================================= -->
+<!-- COMPONENTE: cardFooterBadges.ejs                                  -->
+<!-- UBICACIÓN: views/comprobantes/components/                         -->
+<!-- RESPONSABILIDAD: Recibo R2 (60% ancho), badges/metadatos (40%)    -->
+<!-- ================================================================= -->
 
-function truncarTasaComercial(val) {
-  const num = parseFloat(val);
-  return isNaN(num) || num <= 0 ? 1.0 : Math.floor(num * 10000) / 10000;
-}
-
-/**
- * Devuelve la micro-insignia visual según el ROL de la entidad
- */
-export function obtenerInsigniaRol(rol) {
-  const r = String(rol || '').toUpperCase().trim();
-  switch (r) {
-    case 'ADMIN': return '💎';
-    case 'ASESOR': return '👔';
-    case 'PROVEEDOR': return '🏦';
-    case 'SOCIO': default: return '🤝';
-  }
-}
-
-/**
- * Normaliza y enriquece el objeto recibido de la API v2 para consumo seguro en Alpine.js
- */
-export function prepararEdicionComprobante(item, loteActivo = 'T071') {
-  if (!item) return {};
-
-  const c = item.comprobante || item;
-
-  // 1. IDENTIFICADORES Y HASH
-  const idReal = String(c.id || c.hash_largo || item.id || item.hash_largo || c.referencia || '').trim();
-  const hashCortoFinal = c.hash_corto || item.hash_corto || (idReal ? idReal.slice(0, 8).toUpperCase() : 'HASH');
-
-  // 2. FECHAS Y HORAS ESTÁNDAR V2
-  const rawTs = c.timestamp_msg || item.timestamp_msg || c.fecha_hora_iso || item.fecha_hora_iso || '';
-  const fechaFmt = c.fecha_fmt || item.fecha_fmt || 'S/F';
-  const horaFmt = c.hora_fmt || item.hora_fmt || 'S/F';
+<div class="flex items-stretch gap-2 h-52 sm:h-60 md:h-64 relative"
+     x-data="{
+       get urlRecibo() {
+         return item.link_img || item.url_r2_comprobante || '';
+       }
+     }">
   
-  // Construir cadena para input datetime-local del modal auditoría (YYYY-MM-DDTHH:mm)
-  let dateInput = c.fecha_hora_input || item.fecha_hora_input || '';
-  if (!dateInput && (c.fecha_hora_iso || item.fecha_hora_iso)) {
-    dateInput = String(c.fecha_hora_iso || item.fecha_hora_iso).slice(0, 16);
-  } else if (!dateInput && fechaFmt !== 'S/F' && horaFmt !== 'S/F') {
-    dateInput = `${fechaFmt}T${horaFmt.slice(0, 5)}`;
-  }
-
-  // 3. MONTOS Y MONEDAS
-  const fallbackMonto = Math.abs(parseFloat(c.monto || c.monto_local || item.monto || 0)) || 0;
-  const monedaFinal = String(c.moneda || item.moneda || 'USDT').toUpperCase();
-
-  // 4. ENTIDADES Y ROLES
-  const socio1Real = c.nombre_socio_1 || item.nombre_socio_1 || c.socio_1 || item.socio_1 || c.grupo_1?.grupo || 'GENERAL';
-  const socio2Real = c.nombre_socio_2 || item.nombre_socio_2 || c.socio_2 || item.socio_2 || c.grupo_2?.grupo || 'GENERAL';
-
-  const rol1 = c.rol_1 || item.rol_1 || c.grupo_1?.rol || 'SOCIO';
-  const rol2 = c.rol_2 || item.rol_2 || c.grupo_2?.rol || 'SOCIO';
-
-  const t1 = truncarTasaComercial(c.tasa_1 || item.tasa_1 || c.grupo_1?.tasa);
-  const t2 = truncarTasaComercial(c.tasa_2 || item.tasa_2 || c.grupo_2?.tasa);
-
-  const rawM1 = c.m1_socio ?? item.m1_socio ?? c.monto_1 ?? item.monto_1 ?? c.me1 ?? item.me1 ?? (t1 > 0 ? (fallbackMonto / t1) : fallbackMonto);
-  const rawM2 = c.m2_socio ?? item.m2_socio ?? c.monto_2 ?? item.monto_2 ?? c.me2 ?? item.me2 ?? (t2 > 0 ? (fallbackMonto / t2) : fallbackMonto);
-
-  const calcM1 = Math.abs(parseFloat(rawM1) || 0).toFixed(2);
-  const calcM2 = Math.abs(parseFloat(rawM2) || 0).toFixed(2);
-
-  // 5. IMAGEN CLOUDFLARE R2
-  const rawImg = c.url_r2_comprobante || item.url_r2_comprobante || c.link_img || item.link_img || '';
-
-  // 6. FLAG SOCIO x2
-  const s2Upper = String(socio2Real).toUpperCase().trim();
-  const esX2 = item.es_x2 !== undefined ? Boolean(item.es_x2) : Boolean(s2Upper && s2Upper !== 'GENERAL' && s2Upper !== 'NO DEFINIDO');
-
-  return {
-    ...item,
-    ...c,
-    // CLAVES PRIMARIAS E IDENTIFICADORES
-    id: idReal,
-    hash_largo: idReal,
-    hash_corto: hashCortoFinal,
+  <!-- VISOR DE IMAGEN R2 (60% Ancho) -->
+  <div class="w-[60%] shrink-0 bg-[#010309] border border-blue-900/60 rounded-xl overflow-hidden p-1 flex items-center justify-center relative group">
     
-    // CAMPOS DE FECHA Y TIEMPO
-    timestamp_msg: rawTs,
-    fecha_fmt: fechaFmt,
-    hora_fmt: horaFmt,
-    dia_hora_humano: c.dia_hora_humano || item.dia_hora_humano || 'S/F',
-    fecha_hora_input: dateInput,
-    fecha_hora_comprobante: dateInput,
+    <!-- 🟢 SI EXISTE RECIBO CLOUDFLARE R2 -->
+    <template x-if="urlRecibo">
+      <a :href="urlRecibo" 
+         target="_blank" 
+         class="w-full h-full flex items-center justify-center cursor-pointer" 
+         title="Ver recibo original en pantalla completa">
+        <img :src="urlRecibo" 
+             class="w-full h-full object-contain rounded-lg opacity-90 group-hover:opacity-100 transition-opacity" 
+             alt="Recibo Cloudflare R2"
+             @error="$el.style.display='none'; $el.parentElement.nextElementSibling.classList.remove('hidden')">
+      </a>
+    </template>
 
-    // METADATOS BANCARIOS
-    banco: (c.banco && c.banco !== '-') ? c.banco : (item.banco || 'BANCO'),
-    referencia: (c.referencia && c.referencia !== '-') ? c.referencia : (item.referencia || 'N/A'),
-    titular: (c.titular && c.titular !== '-') ? c.titular : (item.titular || 'TITULAR NO DEFINIDO'),
+    <!-- 🟢 FALLBACK SI NO VIENE RECIBO O FALLA LA CARGA -->
+    <div class="flex flex-col items-center justify-center gap-1 select-none"
+         :class="{ 'hidden': urlRecibo }">
+      <span class="text-base opacity-40">📷</span>
+      <span class="text-[9px] text-slate-500 font-bold font-mono">SIN IMAGEN</span>
+    </div>
+
+  </div>
+
+  <!-- METADATOS, BADGES Y BOTONERA (40% restante) -->
+  <div class="flex-1 min-w-0 flex flex-col justify-between gap-1 py-0.5 relative z-10">
     
-    // IMAGEN
-    link_img: rawImg,
-    url_r2_comprobante: rawImg,
+    <!-- 1. 📅 FECHA -->
+    <div class="w-full text-center py-0.5 rounded bg-cyan-950/90 text-cyan-300 font-mono text-[8px] sm:text-[9px] font-bold border border-cyan-500/50 shadow truncate px-0.5"
+         title="Fecha del comprobante">
+      📅 <span x-text="item.fecha_fmt || 'S/F'"></span>
+    </div>
 
-    // SOCIO 1
-    nombre_socio_1: socio1Real,
-    socio_1: socio1Real,
-    rol_1: rol1,
-    badge_1: obtenerInsigniaRol(rol1),
-    moneda_base_socio1: c.moneda_base_socio1 || item.moneda_base_socio1 || 'USDT',
-    tasa_1: t1,
-    m1_socio: calcM1,
-    monto_1: calcM1,
-    me1: calcM1,
+    <!-- 2. 🕒 DÍA Y HORA (Usa directamente el campo formateado por la API) -->
+    <div class="w-full text-center py-0.5 rounded bg-indigo-950/90 text-indigo-300 font-mono text-[8px] sm:text-[9px] font-bold border border-indigo-500/50 shadow truncate px-0.5"
+         title="Día y Hora exacta">
+      🕒 <span x-text="item.dia_hora_humano || item.hora_fmt || 'S/F'"></span>
+    </div>
 
-    // SOCIO 2
-    nombre_socio_2: socio2Real,
-    socio_2: socio2Real,
-    rol_2: rol2,
-    badge_2: obtenerInsigniaRol(rol2),
-    moneda_base_socio2: c.moneda_base_socio2 || item.moneda_base_socio2 || 'USDT',
-    tasa_2: t2,
-    m2_socio: calcM2,
-    monto_2: calcM2,
-    me2: calcM2,
+    <!-- 3. 🔑 HASH CORTO -->
+    <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-300 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700/80 truncate px-0.5 shadow flex items-center justify-center gap-1" 
+         title="Hash de verificación">
+      <span>🔑</span>
+      <span x-text="item.hash_corto || 'HASH'"></span>
+    </div>
+    
+    <!-- 4. 🏷️ TIPO OP & BADGE x2 -->
+    <div class="flex gap-1 w-full">
+      <div class="flex-1 text-center py-0.5 rounded text-[8px] sm:text-[9px] font-bold border whitespace-nowrap truncate px-0.5 flex items-center justify-center gap-0.5" 
+           :class="claseInsignia(item.tipo_manual || item.tipo || 'D')">
+        <span>🏷️</span>
+        <span x-text="item.tipo_manual || item.tipo || 'D'"></span>
+      </div>
+      
+      <span x-show="item.es_x2" 
+            class="px-1 py-0.5 rounded bg-amber-950 text-amber-300 text-[8px] sm:text-[9px] font-bold border border-amber-500/40 whitespace-nowrap">⚡ x2</span>
+    </div>
 
-    // REGLAS GENERALES Y LOTES
-    es_x2: esX2,
-    tipo_op: (c.tipo_op || c.tipo || item.tipo || item.tipo_manual || 'D').toUpperCase(),
-    tipo_manual: (c.tipo_manual || c.tipo || item.tipo || 'D').toUpperCase(),
-    moneda: monedaFinal,
-    monto: fallbackMonto,
-    monto_local: fallbackMonto,
-    lote: c.lote || item.lote || c.lote_tasa_asignado || item.lote_tasa_asignado || loteActivo,
-    lote_tasa_asignado: c.lote_tasa_asignado || item.lote_tasa_asignado || c.lote || item.lote || loteActivo,
+    <!-- 5. 📊 LOTE TASA & STATUS IA -->
+    <div class="flex gap-1 w-full">
+      <div class="flex-1 text-center py-0.5 rounded bg-purple-950/90 text-purple-300 text-[8px] sm:text-[9px] font-bold border border-purple-500/50 truncate px-0.5 flex items-center justify-center gap-0.5"
+           title="Lote de Tasa asignado">
+        <span>📊</span>
+        <span x-text="item.lote_tasa_asignado || item.lote || 'T-ND'"></span>
+      </div>
+    </div>
 
-    // GRUPOS COMPATIBILIDAD ANIDADA
-    grupo_1: {
-      grupo: socio1Real,
-      rol: rol1,
-      tasa: t1,
-      monto: calcM1,
-      moneda_base: c.moneda_base_socio1 || item.moneda_base_socio1 || 'USDT',
-      me: calcM1
-    },
-    grupo_2: {
-      grupo: socio2Real,
-      rol: rol2,
-      tasa: t2,
-      monto: calcM2,
-      moneda_base: c.moneda_base_socio2 || item.moneda_base_socio2 || 'USDT',
-      me: calcM2
-    }
-  };
-}
+    <!-- 6. 💰 MONTO EQUIVALENTE 1 Y 2 -->
+    <div class="flex flex-col gap-0.5 mt-auto">
+      <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-200 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700/80 shadow truncate px-0.5 flex items-center justify-between px-1.5" 
+           title="Monto Equivalente Socio 1">
+        <span class="text-blue-400 font-sans">💳 ME1:</span>
+        <span x-text="formatMonto(item.me1 || item.monto_1 || 0)"></span>
+      </div>
+      
+      <template x-if="item.es_x2">
+        <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-200 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700/80 shadow truncate px-0.5 flex items-center justify-between px-1.5"
+             title="Monto Equivalente Socio 2">
+          <span class="text-purple-400 font-sans">💳 ME2:</span>
+          <span x-text="formatMonto(item.me2 || item.monto_2 || 0)"></span>
+        </div>
+      </template>
+    </div>
+
+    <!-- 7. 🛠️ ACCIONES DE AUDITORÍA -->
+    <div class="flex justify-around items-center pt-1 border-t border-blue-900/40 relative z-30 pointer-events-auto">
+      <button type="button" 
+              @click.stop="eliminarComprobante(item.id || item.hash_largo)" 
+              class="p-1 text-slate-400 hover:text-rose-400 transition-colors text-sm active:scale-95 cursor-pointer relative z-40" 
+              title="Eliminar Comprobante">
+        🗑️
+      </button>
+
+      <button type="button" 
+              @click.stop="$dispatch('abrir-modal-edicion', item)" 
+              class="p-1 text-slate-400 hover:text-cyan-400 transition-colors text-sm cursor-pointer" 
+              title="Auditar / Editar">
+        ✏️
+      </button>
+    </div>
+
+  </div>
+
+</div>
