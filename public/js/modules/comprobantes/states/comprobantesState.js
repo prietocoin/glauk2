@@ -1,6 +1,6 @@
 /**
  * @file comprobantesState.js
- * @description Estado reactivo Alpine.js con soporte atómico de Infinite Scroll y tope DOM (200 cards max).
+ * Estado reactivo Alpine.js con soporte atómico de Infinite Scroll y tope DOM (200 cards max).
  */
 
 import { 
@@ -89,7 +89,7 @@ export function comprobantesState() {
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 CARGA PAGINADA CON CAP MÁXIMO DE 200 ELEMENTOS EN DOM
+    // 🟢 CARGA PAGINADA EN LOTES DE 20 CON CAP MÁXIMO DE 200 ELEMENTOS EN DOM
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
@@ -121,17 +121,19 @@ export function comprobantesState() {
           filtroOrden: this.filtroOrden
         });
 
-        // Acumular respetando el CAP de 200 elementos
+        // Acumular respetando el CAP estricto de 200 elementos
         let acumulados = [...this.items, ...filtrados];
-        if (acumulados.length > this.capMaximoDOM) {
-          acumulados = acumulados.slice(acumulados.length - this.capMaximoDOM);
+        
+        if (acumulados.length >= this.capMaximoDOM) {
+          acumulados = acumulados.slice(0, this.capMaximoDOM);
+          this.hayMasDatos = false; // Detener scroll infinito al llegar a 200
         }
 
         this.items = acumulados;
         this.comprobantes = acumulados;
         this.paginaActual++;
 
-        // 🟢 AUTO-REFILL: Si el filtro descartó basuras y la pantalla quedó con pocos ítems, pedir la siguiente página
+        // 🟢 AUTO-REFILL: Si el filtro descartó registros y la pantalla quedó con pocos ítems, pedir la siguiente página
         if (this.items.length < 10 && this.hayMasDatos) {
           this.cargando = false;
           return this.cargarSiguientePagina();
@@ -149,7 +151,7 @@ export function comprobantesState() {
         if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
           this.cargarSiguientePagina();
         }
-      }, { rootMargin: '200px' });
+      }, { rootMargin: '150px' });
 
       const sentinel = document.getElementById('sentinel-scroll');
       if (sentinel) observer.observe(sentinel);
