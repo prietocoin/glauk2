@@ -85,8 +85,31 @@ export function comprobantesState() {
 
     init() {
       this.$nextTick(() => {
+        this.escucharActualizacionesGlobales();
         this.resetearYRefrescar();
         this.iniciarEscuchadoresScroll();
+      });
+    },
+
+    // 🟢 ESCUCHAR EVENTO GLOBAL DE GUARDADO DE MODAL
+    escucharActualizacionesGlobales() {
+      window.addEventListener('comprobante-actualizado', (evt) => {
+        const payload = evt.detail;
+        if (!payload || !payload.hash_largo) return;
+
+        const targetHash = String(payload.hash_largo).trim().toLowerCase();
+
+        // Actualizar en el buffer de items visibles
+        const idxVisibles = this.items.findIndex(i => String(i.hash_largo || i.id).trim().toLowerCase() === targetHash);
+        if (idxVisibles !== -1) {
+          this.items[idxVisibles] = prepararEdicionComprobante({ ...this.items[idxVisibles], ...payload }, this.loteActivo);
+        }
+
+        // Actualizar en el buffer acumulado
+        const idxTodos = this.todosLosItems.findIndex(i => String(i.hash_largo || i.id).trim().toLowerCase() === targetHash);
+        if (idxTodos !== -1) {
+          this.todosLosItems[idxTodos] = prepararEdicionComprobante({ ...this.todosLosItems[idxTodos], ...payload }, this.loteActivo);
+        }
       });
     },
 
@@ -108,13 +131,12 @@ export function comprobantesState() {
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 PAGINACIÓN REAL CONTRA LA API + REVELADO PROGRESIVO DE 20 EN 20
+    // 🟢 PAGINACIÓN REAL CONTRA LA API + REVELADO PROGRESIVO
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
 
       try {
-        // A) Si el buffer local no tiene suficientes elementos para mostrar un nuevo lote de 20, pedimos más a la API
         if (this.items.length + this.tamanoLote > this.todosLosItems.length) {
           const params = {
             page: this.paginaAPI,
@@ -133,30 +155,19 @@ export function comprobantesState() {
           } else {
             const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-            // Cortafuegos de 2 socios (x2) aprovechando comprobantes_final
-            const depurados2x = mapeados.filter(item => {
-              if (typeof item.es_x2 === 'boolean') {
-                return item.es_x2;
-              }
-              const s2 = String(item.nombre_socio_2 || item.socio_2 || item.grupo_2?.grupo || '').toUpperCase().trim();
-              return s2 !== '' && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO';
-            });
-
             // Evitar duplicados por HASH / ID
             const idsExistentes = new Set(this.todosLosItems.map(i => String(i.id || i.hash_largo)));
-            const nuevosUnicos = depurados2x.filter(i => !idsExistentes.has(String(i.id || i.hash_largo)));
+            const nuevosUnicos = mapeados.filter(i => !idsExistentes.has(String(i.id || i.hash_largo)));
 
             this.todosLosItems = [...this.todosLosItems, ...nuevosUnicos];
             this.paginaAPI++;
 
-            // Si la API devolvió menos del límite solicitado, ya se agotó la base de datos
             if (lista.length < this.limitAPI) {
               this.hayMasDatos = false;
             }
           }
         }
 
-        // B) Revelar el siguiente lote de 20 en el DOM
         const proximoLimite = Math.min(
           this.items.length + this.tamanoLote,
           this.capMaximoDOM,
@@ -165,7 +176,6 @@ export function comprobantesState() {
 
         this.items = [...this.todosLosItems.slice(0, proximoLimite)];
 
-        // Si alcanzamos el tope máximo en DOM (300) o se agotó el buffer y la API
         if (this.items.length >= this.capMaximoDOM) {
           this.hayMasDatos = false;
         }
@@ -179,7 +189,7 @@ export function comprobantesState() {
       }
     },
 
-    // 🟢 DETECTOR DE SCROLL ULTRA-SENSIBLE
+    // 🟢 DETECTOR DE SCROLL
     iniciarEscuchadoresScroll() {
       this.$nextTick(() => {
         const intentarCargar = () => {
