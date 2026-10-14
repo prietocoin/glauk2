@@ -2,7 +2,7 @@
  * =================================================================
  * @file comprobantesFilterService.js
  * @path public/js/modules/comprobantes/services/comprobantesFilterService.js
- * @description Servicio atómico de cortafuegos (Filtro x2 estricto) y ordenamiento.
+ * @description Servicio atómico de cortafuegos (Filtro x2 estricto) y ordenamiento para comprobantes_final.
  * =================================================================
  */
 
@@ -20,7 +20,13 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
   // 🟢 0. CORTAFUEGOS OBLIGATORIO x2 (Descartar registros 1x / basura unipersonal)
   resultado = resultado.filter(item => {
     if (!item) return false;
-    const s2 = String(item.socio_2 || item.nombre_socio_2 || '').trim().toUpperCase();
+    
+    // Si viene la bandera directa desde comprobantes_final, la evaluamos
+    if (typeof item.es_x2 === 'boolean') {
+      if (!item.es_x2) return false;
+    }
+
+    const s2 = String(item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
     return Boolean(s2 && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO' && s2 !== 'S/D');
   });
 
@@ -46,14 +52,14 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
     });
   }
 
-  // 2. FILTRADO POR FECHA INICIO (fecha_hora_comprobante)
+  // 2. FILTRADO POR FECHA INICIO
   if (filtros.filtroFechaInicio) {
     const startObj = new Date(String(filtros.filtroFechaInicio).trim() + 'T00:00:00');
     if (!isNaN(startObj.getTime())) {
       const startMs = startObj.getTime();
 
       resultado = resultado.filter(item => {
-        const rawDate = item.fecha_hora_comprobante || item.fecha_hora_input || item.created_at || item.fecha;
+        const rawDate = item.fecha_hora_iso || item.fecha_fmt || item.fecha_hora_comprobante || item.fecha_hora_input || item.created_at;
         if (!rawDate) return true;
         const itemMs = new Date(rawDate).getTime();
         return !isNaN(itemMs) ? itemMs >= startMs : true;
@@ -61,14 +67,14 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
     }
   }
 
-  // 3. FILTRADO POR FECHA FIN (fecha_hora_comprobante)
+  // 3. FILTRADO POR FECHA FIN
   if (filtros.filtroFechaFin) {
     const endObj = new Date(String(filtros.filtroFechaFin).trim() + 'T23:59:59');
     if (!isNaN(endObj.getTime())) {
       const endMs = endObj.getTime();
 
       resultado = resultado.filter(item => {
-        const rawDate = item.fecha_hora_comprobante || item.fecha_hora_input || item.created_at || item.fecha;
+        const rawDate = item.fecha_hora_iso || item.fecha_fmt || item.fecha_hora_comprobante || item.fecha_hora_input || item.created_at;
         if (!rawDate) return true;
         const itemMs = new Date(rawDate).getTime();
         return !isNaN(itemMs) ? itemMs <= endMs : true;
@@ -76,7 +82,7 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
     }
   }
 
-  // 4. ORDENAMIENTO COMPLETO SEGÚN LAS OPCIONES DE BARRAFILTROS (7. ORDENAR)
+  // 4. ORDENAMIENTO COMPLETO
   const criterioOrden = String(filtros.filtroOrden || 'fecha_desc').toLowerCase();
 
   return [...resultado].sort((a, b) => {
@@ -89,13 +95,16 @@ export function filtrarComprobantesAtómico(listaBase = [], directorio = [], fil
     }
 
     // B) Orden por Fecha
-    const msA = new Date(a.fecha_hora_comprobante || a.fecha_hora_input || 0).getTime();
-    const msB = new Date(b.fecha_hora_comprobante || b.fecha_hora_input || 0).getTime();
+    const dateA = a.fecha_hora_iso || a.fecha_fmt || a.fecha_hora_comprobante || a.fecha_hora_input || 0;
+    const dateB = b.fecha_hora_iso || b.fecha_fmt || b.fecha_hora_comprobante || b.fecha_hora_input || 0;
+
+    const msA = new Date(dateA).getTime() || 0;
+    const msB = new Date(dateB).getTime() || 0;
 
     if (criterioOrden === 'fecha_asc') {
-      return msA - msB; // Antiguos primero (Ascendente)
+      return msA - msB; // Antiguos primero
     } else {
-      return msB - msA; // Recientes primero (Descendente / Default)
+      return msB - msA; // Recientes primero (Default)
     }
   });
 }
