@@ -161,7 +161,7 @@ export function comprobantesState() {
     },
 
     // 🟢 DISPARADOR DE CARGA POR INTERACCIÓN DIRECTA (RUEDA / TOUCH / SCROLL)
-   // 🟢 ESCUCHADOR UNIVERSAL DE SCROLL + INTERSECCIÓN
+   // 🟢 DETECTOR DE SCROLL ULTRA-SENSIBLE E INFALIBLE
     iniciarEscuchadoresScroll() {
       this.$nextTick(() => {
         const intentarCargar = () => {
@@ -173,28 +173,24 @@ export function comprobantesState() {
           const rect = sentinel.getBoundingClientRect();
           const vh = window.innerHeight || document.documentElement.clientHeight;
 
-          // Si el centinela entra a menos de 600px del área visible
-          if (rect.top <= vh + 600) {
+          // Si el centinela se acerca a menos de 500px del área visible de la pantalla
+          if (rect.top <= vh + 500) {
             this.cargarSiguientePagina();
           }
         };
 
-        // 1. Escuchar eventos en Window y en la fase de captura de Document
-        window.addEventListener('scroll', intentarCargar, { passive: true });
+        // 1. ESCUCHA CAPTURADORA UNIVERSAL (Atrapa el scroll en CUALQUIER div interno)
         document.addEventListener('scroll', intentarCargar, { capture: true, passive: true });
+        window.addEventListener('scroll', intentarCargar, { passive: true });
 
-        // 2. Adjuntar listener de scroll A TODOS LOS ELEMENTOS CON OVERFLOW en el DOM
-        document.querySelectorAll('div, main, section, body').forEach(el => {
-          const style = window.getComputedStyle(el);
-          if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-            el.addEventListener('scroll', intentarCargar, { passive: true });
-          }
-        });
+        // 2. ESCUCHA DE LA RUEDA DEL MOUSE Y PANTALLA TÁCTIL
+        document.addEventListener('wheel', intentarCargar, { capture: true, passive: true });
+        document.addEventListener('touchmove', intentarCargar, { capture: true, passive: true });
 
-        // 3. Polling de respaldo cada 300ms (Si el usuario mueve la rueda o el drag)
-        setInterval(intentarCargar, 300);
+        // 3. SONDEO ACTIVO (Comprueba la posición del centinela constantemente)
+        setInterval(intentarCargar, 250);
 
-        // 4. IntersectionObserver como guardián nativo
+        // 4. INTERSECTION OBSERVER SOBRE EL VIEWPORT
         const sentinel = document.getElementById('sentinel-scroll');
         if (sentinel) {
           const observer = new IntersectionObserver((entries) => {
