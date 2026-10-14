@@ -1,11 +1,16 @@
 /**
  * @file comprobantesMapperService.js
- * @description Mapeador atómico del frontend para la API v2.
+ * @description Mapeador atómico del frontend para la API v2 y la tabla comprobantes_final.
  */
 
+/**
+ * Trunca o normaliza el valor numérico de la tasa.
+ * Si viene 'N/A', nulo o un valor no válido, retorna 0.
+ */
 function truncarTasaComercial(val) {
+  if (val === 'N/A' || val === null || val === undefined) return 0;
   const num = parseFloat(val);
-  return isNaN(num) || num <= 0 ? 1.0 : Math.floor(num * 10000) / 10000;
+  return isNaN(num) || num <= 0 ? 0 : Math.floor(num * 10000) / 10000;
 }
 
 /**
@@ -22,7 +27,8 @@ export function obtenerInsigniaRol(rol) {
 }
 
 /**
- * Normaliza y enriquece el objeto recibido de la API v2 para consumo seguro en Alpine.js
+ * Normaliza y enriquece el objeto recibido de la API v2 (comprobantes_final) 
+ * para consumo seguro en Alpine.js.
  */
 export function prepararEdicionComprobante(item, loteActivo = 'T071') {
   if (!item) return {};
@@ -58,8 +64,8 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
   const rol1 = c.rol_1 || item.rol_1 || c.grupo_1?.rol || 'SOCIO';
   const rol2 = c.rol_2 || item.rol_2 || c.grupo_2?.rol || 'SOCIO';
 
-  const t1 = truncarTasaComercial(c.tasa_1 || item.tasa_1 || c.grupo_1?.tasa);
-  const t2 = truncarTasaComercial(c.tasa_2 || item.tasa_2 || c.grupo_2?.tasa);
+  const t1 = truncarTasaComercial(c.tasa_1 ?? item.tasa_1 ?? c.grupo_1?.tasa);
+  const t2 = truncarTasaComercial(c.tasa_2 ?? item.tasa_2 ?? c.grupo_2?.tasa);
 
   const rawM1 = c.m1_socio ?? item.m1_socio ?? c.monto_1 ?? item.monto_1 ?? c.me1 ?? item.me1 ?? (t1 > 0 ? (fallbackMonto / t1) : fallbackMonto);
   const rawM2 = c.m2_socio ?? item.m2_socio ?? c.monto_2 ?? item.monto_2 ?? c.me2 ?? item.me2 ?? (t2 > 0 ? (fallbackMonto / t2) : fallbackMonto);
@@ -67,7 +73,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
   const calcM1 = Math.abs(parseFloat(rawM1) || 0).toFixed(2);
   const calcM2 = Math.abs(parseFloat(rawM2) || 0).toFixed(2);
 
-  // 🟢 4.1 POLARIDADES PRESERVADAS DESDE LA API
+  // 4.1 POLARIDADES PRESERVADAS DESDE LA API
   const pol1 = c.polaridad_1 || item.polaridad_1 || c.grupo_1?.polaridad || item.grupo_1?.polaridad || '+';
   const pol2 = c.polaridad_2 || item.polaridad_2 || c.grupo_2?.polaridad || item.grupo_2?.polaridad || '-';
 
@@ -113,7 +119,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
     m1_socio: calcM1,
     monto_1: calcM1,
     me1: calcM1,
-    polaridad_1: pol1, // 🟢 PRESERVADO EN LA RAÍZ
+    polaridad_1: pol1,
 
     // SOCIO 2
     nombre_socio_2: socio2Real,
@@ -125,7 +131,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
     m2_socio: calcM2,
     monto_2: calcM2,
     me2: calcM2,
-    polaridad_2: pol2, // 🟢 PRESERVADO EN LA RAÍZ
+    polaridad_2: pol2,
 
     // REGLAS GENERALES Y LOTES
     es_x2: esX2,
@@ -142,7 +148,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
       grupo: socio1Real,
       rol: rol1,
       tasa: t1,
-      polaridad: pol1, // 🟢 CONSERVADO EN OBJETO ANIDADO
+      polaridad: pol1,
       monto: calcM1,
       moneda_base: c.moneda_base_socio1 || item.moneda_base_socio1 || 'USDT',
       me: calcM1
@@ -151,7 +157,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
       grupo: socio2Real,
       rol: rol2,
       tasa: t2,
-      polaridad: pol2, // 🟢 CONSERVADO EN OBJETO ANIDADO
+      polaridad: pol2,
       monto: calcM2,
       moneda_base: c.moneda_base_socio2 || item.moneda_base_socio2 || 'USDT',
       me: calcM2
