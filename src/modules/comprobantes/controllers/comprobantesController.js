@@ -1,12 +1,15 @@
 /**
  * @file comprobantesController.js
+ * @description Controlador HTTP orquestador modular para el CRUD de comprobantes_final.
  */
-// 🟢 1. Importar el nombre real exportado por comprobantesQuery.js
-const { obtenerComprobantesFinalPaginados } = require('../queries/comprobantesQuery');
+const { obtenerComprobantesFinalPaginados } = require('../queries/comprobantesQuery'); // 👈 Aquí estaba el error
 const { eliminarComprobante } = require('../services/comprobantesBorradoService');
 const { releerIA } = require('../services/comprobantesIaService');
 const { liquidarComprobante, actualizarComprobante } = require('../services/comprobantesSnapshotService');
 
+/**
+ * 🟢 Lectura principal invocando la capa Query aislada
+ */
 async function getComprobantes(req, res) {
   try {
     const { 
@@ -19,7 +22,6 @@ async function getComprobantes(req, res) {
       fecha_fin = '' 
     } = req.query;
 
-    // 🟢 2. Ejecutar la función correcta pasando los parámetros en un solo objeto
     const rows = await obtenerComprobantesFinalPaginados({
       socio,
       limit: parseInt(limit, 10) || 50,
@@ -31,8 +33,7 @@ async function getComprobantes(req, res) {
     return res.status(200).json(rows);
   } catch (err) {
     console.error('❌ [comprobantesController Error]:', err.message);
-    // 🟢 3. Si algo falla en la SQL, enviar el error al navegador para verlo en F12
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message }); // 👈 Ya no se ocultan errores como []
   }
 }
 
