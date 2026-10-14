@@ -1,6 +1,6 @@
 /**
  * @file comprobantesState.js
- * @description Estado reactivo Alpine.js con Infinite Scroll atómico (20 en 20 hasta 200).
+ * @description Estado reactivo Alpine.js con cortafuegos de 2 socios (x2) y scroll infinito de 20 en 20.
  */
 
 import { 
@@ -16,6 +16,7 @@ import {
 import { fetchComprobantesPaginados, eliminarComprobantePorHash } from '../services/comprobantesApiService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante, obtenerInsigniaRol } from '../services/comprobantesMapperService.js';
+import { filtrarComprobantesAtómico } from '../services/comprobantesFilterService.js';
 import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/comprobantesSaldosService.js';
 
 function obtenerRangoMesActualCaracas() {
@@ -36,8 +37,7 @@ export function comprobantesState() {
   const { fechaInicio: inicioMes, fechaFin: finMes } = obtenerRangoMesActualCaracas();
 
   const state = {
-    // 1. REGISTROS Y CONTROL
-    todosLosItems: [], // Almacén completo filtrado desde la API
+    todosLosItems: [], // Buffer depurado que CUMPLE con la regla de 2 socios
     items: [],          // Arreglo visible renderizado en DOM (20, 40, 60... máx 200)
     directorio: [], 
     cargando: false, 
@@ -64,7 +64,6 @@ export function comprobantesState() {
     obtenerSujetoAuditado,
     obtenerInsigniaRol,
 
-    // 2. METRICAS REACTIVAS SOBRE TARJETAS VISIBLES
     get movimientoFiltradoTotal() {
       return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
     },
@@ -79,7 +78,6 @@ export function comprobantesState() {
       });
     },
 
-    // 3. CICLO DE VIDA
     init() {
       this.$nextTick(() => {
         this.resetearYRefrescar();
@@ -104,13 +102,13 @@ export function comprobantesState() {
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 DOSIFICADOR DE SCROLL INFINITO (INCREMENTOS DE 20 EN 20)
+    // 🟢 CARGA CON CORTAFUEGOS 2X + DOSIFICADOR DE SCROLL (20 EN 20)
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
 
       try {
-        // A) Petición inicial a la API si el buffer interno está vacío
+        // A) Petición a la API y depuración atómica estricta (solo items 2x válidos)
         if (this.todosLosItems.length === 0) {
           const params = {
             page: 1,
@@ -124,17 +122,29 @@ export function comprobantesState() {
           const raw = await fetchComprobantesPaginados(params);
           const lista = Array.isArray(raw) ? raw : (raw?.datos || raw?.comprobantes || []);
 
-          this.todosLosItems = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
+          const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
+
+          // 🟢 CORTAFUEGOS ATÓMICO: Descarta registros sin 2 socios o incompletos
+          const depurados2x = filtrarComprobantesAtómico(mapeados, this.directorio, {
+            filtroSocio: this.filtroSocio,
+            filtroFechaInicio: this.filtroFechaInicio,
+            filtroFechaFin: this.filtroFechaFin,
+            filtroHash: this.filtroHash,
+            filtroOrden: this.filtroOrden
+          });
+
+          // Filtrado adicional explicito: Debe ser obligatoriamente es_x2 === true
+          this.todosLosItems = depurados2x.filter(item => Boolean(item.es_x2));
         }
 
-        // B) Incremento del corte visible en el DOM
+        // B) Incremento del corte visible en el DOM en bloques de 20
         const corteObjetivo = this.bloqueActual * this.tamanoLote;
         const limiteReal = Math.min(corteObjetivo, this.capMaximoDOM, this.todosLosItems.length);
 
         this.items = this.todosLosItems.slice(0, limiteReal);
         this.bloqueActual++;
 
-        // C) Evaluar si llegamos al tope de 200 o si no quedan más registros
+        // C) Evaluar si alcanzamos el tope de 200 o se agotó el catálogo de la API
         if (this.items.length >= this.capMaximoDOM || this.items.length >= this.todosLosItems.length) {
           this.hayMasDatos = false;
         }
@@ -146,10 +156,10 @@ export function comprobantesState() {
       }
     },
 
-    // 🟢 OBSERVADOR DE SCROLL HÍBRIDO (WINDOW + CONTENEDORES CON OVERFLOW)
+    // 🟢 REGISTRO DE EVENTO SCROLL HÍBRIDO (WINDOW + CONTENEDORES OVERFLOW)
     iniciarObserverFallback() {
       this.$nextTick(() => {
-        const dispararCargaSiCorresponde = () => {
+        const dispararCarga = () => {
           if (this.cargando || !this.hayMasDatos) return;
 
           const sentinel = document.getElementById('sentinel-scroll');
@@ -158,15 +168,16 @@ export function comprobantesState() {
           const rect = sentinel.getBoundingClientRect();
           const windowHeight = window.innerHeight || document.documentElement.clientHeight;
 
-          if (rect.top <= windowHeight + 300) {
+          // Si el centinela entra a menos de 400px del final de la pantalla
+          if (rect.top <= windowHeight + 400) {
             this.cargarSiguientePagina();
           }
         };
 
-        window.addEventListener('scroll', dispararCargaSiCorresponde, { passive: true });
+        window.addEventListener('scroll', dispararCarga, { passive: true });
 
-        document.querySelectorAll('.overflow-y-auto, .overflow-auto, main, body').forEach(el => {
-          el.addEventListener('scroll', dispararCargaSiCorresponde, { passive: true });
+        document.querySelectorAll('.overflow-y-auto, .overflow-auto, main, body, #app').forEach(el => {
+          el.addEventListener('scroll', dispararCarga, { passive: true });
         });
 
         const sentinel = document.getElementById('sentinel-scroll');
@@ -175,7 +186,7 @@ export function comprobantesState() {
             if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
               this.cargarSiguientePagina();
             }
-          }, { rootMargin: '300px' });
+          }, { rootMargin: '400px' });
 
           observer.observe(sentinel);
         }
