@@ -42,11 +42,15 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 5. MONTAJE DE RUTAS API
+// 5. MONTAJE DE RUTAS API (INCLUYE ALIAS V2 PARA EL DESACOPLADO)
 app.use('/api/tasas', tasasRoutes);
 app.use('/api/directorio', directorioRoutes);
 app.use('/api/socios', directorioRoutes); // Alias retrocompatible
+
+// 🟢 MÓDULO ÚNICO DE COMPROBANTES_FINAL (v1 y v2)
 app.use('/api/comprobantes', comprobantesRoutes);
+app.use('/api/v2/comprobantes', comprobantesRoutes);
+
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/admin', adminRoutes);
 
@@ -55,7 +59,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', service: 'Glauk2 Engine', timestamp: new Date() });
 });
 
-// 6. WILDCARD SSR (Renderiza el index.ejs)
+// 6. WILDCARD SSR (Renderiza el index.ejs para la SPA)
 app.get('*', (req, res) => {
   res.render('index');
 });
