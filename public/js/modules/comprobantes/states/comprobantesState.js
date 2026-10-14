@@ -159,3 +159,69 @@ export function comprobantesState() {
       } catch (err) {
         console.error('❌ Error al cargar lote de comprobantes:', err);
       } finally {
+        this.cargando = false;
+      }
+    },
+
+    // 🟢 DETECTOR INFALIBLE DE SCROLL (CAPTURA DE PROXIMIDAD + POLLING + INTERSECTION OBSERVER)
+    iniciarObserverFallback() {
+      this.$nextTick(() => {
+        const verificarProximidad = () => {
+          if (this.cargando || !this.hayMasDatos) return;
+
+          const sentinel = document.getElementById('sentinel-scroll');
+          if (!sentinel) return;
+
+          const rect = sentinel.getBoundingClientRect();
+          const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+
+          // Dispara cuando el centinela esté a menos de 600px del final visible
+          if (rect.top <= windowHeight + 600) {
+            this.cargarSiguientePagina();
+          }
+        };
+
+        // 1. Atrapa eventos de scroll en la ventana y en cualquier contenedor interno
+        document.addEventListener('scroll', verificarProximidad, { capture: true, passive: true });
+
+        // 2. Intervalo de sondeo (polling) activo por si el scroll no emite evento
+        setInterval(verificarProximidad, 400);
+
+        // 3. Respaldo por IntersectionObserver
+        const sentinel = document.getElementById('sentinel-scroll');
+        if (sentinel) {
+          const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
+              this.cargarSiguientePagina();
+            }
+          }, { rootMargin: '500px' });
+
+          observer.observe(sentinel);
+        }
+      });
+    },
+
+    async eliminarComprobante(identificador) {
+      if (!identificador) return;
+
+      if (!confirm('¿Confirmas que deseas eliminar este comprobante?')) return;
+
+      const idStr = String(identificador).trim();
+
+      try {
+        await eliminarComprobantePorHash(idStr);
+      } catch (err) {
+        console.error('❌ Error al eliminar:', err);
+      } finally {
+        this.items = this.items.filter(item => String(item.id || item.hash_largo || '') !== idStr);
+        this.todosLosItems = this.todosLosItems.filter(item => String(item.id || item.hash_largo || '') !== idStr);
+      }
+    },
+
+    formatMonto, formatTasa, obtenerME1, obtenerME2, obtenerTasaSocioCalculada, claseInsignia, formatDiaHora
+  };
+
+  Object.assign(state, crearAccionesModal(state));
+
+  return state;
+}
