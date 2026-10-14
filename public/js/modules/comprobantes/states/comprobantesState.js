@@ -1,6 +1,6 @@
 /**
  * @file comprobantesState.js
- * @description Estado reactivo Alpine.js con Infinite Scroll progresivo (20 en 20 hasta 200).
+ * @description Estado reactivo Alpine.js con Infinite Scroll atómico (20 en 20 hasta 200).
  */
 
 import { 
@@ -36,14 +36,13 @@ export function comprobantesState() {
   const { fechaInicio: inicioMes, fechaFin: finMes } = obtenerRangoMesActualCaracas();
 
   const state = {
-    // ESTADO DE DATOS
-    todosLosItems: [],  // Catálogo completo de la API
-    items: [],          // Lote visible en pantalla (20, 40, 60... máx 200)
+    // 1. REGISTROS Y CONTROL
+    todosLosItems: [], // Almacén completo filtrado desde la API
+    items: [],          // Arreglo visible renderizado en DOM (20, 40, 60... máx 200)
     directorio: [], 
     cargando: false, 
     hayMasDatos: true,
     
-    // RANGOS Y PÁGINA
     bloqueActual: 1,
     tamanoLote: 20,
     capMaximoDOM: 200,
@@ -65,6 +64,7 @@ export function comprobantesState() {
     obtenerSujetoAuditado,
     obtenerInsigniaRol,
 
+    // 2. METRICAS REACTIVAS SOBRE TARJETAS VISIBLES
     get movimientoFiltradoTotal() {
       return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
     },
@@ -79,10 +79,11 @@ export function comprobantesState() {
       });
     },
 
+    // 3. CICLO DE VIDA
     init() {
       this.$nextTick(() => {
         this.resetearYRefrescar();
-        this.iniciarObserverScrollInfinito();
+        this.iniciarObserverFallback();
       });
     },
 
@@ -103,13 +104,13 @@ export function comprobantesState() {
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 PAGINACIÓN PROGRESIVA FLUIDA (20 EN 20 -> MÁX 200)
+    // 🟢 DOSIFICADOR DE SCROLL INFINITO (INCREMENTOS DE 20 EN 20)
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
 
       try {
-        // 1. Si no hemos pedido los datos a la API, los traemos todos
+        // A) Petición inicial a la API si el buffer interno está vacío
         if (this.todosLosItems.length === 0) {
           const params = {
             page: 1,
@@ -126,42 +127,44 @@ export function comprobantesState() {
           this.todosLosItems = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
         }
 
-        // 2. Calcular cuántos items mostrar en este paso
-        const objetivo = this.bloqueActual * this.tamanoLote;
-        const limiteFinal = Math.min(objetivo, this.capMaximoDOM, this.todosLosItems.length);
+        // B) Incremento del corte visible en el DOM
+        const corteObjetivo = this.bloqueActual * this.tamanoLote;
+        const limiteReal = Math.min(corteObjetivo, this.capMaximoDOM, this.todosLosItems.length);
 
-        this.items = this.todosLosItems.slice(0, limiteFinal);
+        this.items = this.todosLosItems.slice(0, limiteReal);
         this.bloqueActual++;
 
-        // 3. Evaluar si quedan más tarjetas por revelar
+        // C) Evaluar si llegamos al tope de 200 o si no quedan más registros
         if (this.items.length >= this.capMaximoDOM || this.items.length >= this.todosLosItems.length) {
           this.hayMasDatos = false;
         }
 
       } catch (err) {
-        console.error('❌ Error al cargar comprobantes:', err);
+        console.error('❌ Error al cargar lote de comprobantes:', err);
       } finally {
         this.cargando = false;
       }
     },
 
-    iniciarObserverScrollInfinito() {
-      this.$nextTick(() => {
+    // Respaldo por IntersectionObserver nativo si no se usa x-intersect
+    iniciarObserverFallback() {
+      const conectar = () => {
         const sentinel = document.getElementById('sentinel-scroll');
-        if (!sentinel) return;
+        if (!sentinel) {
+          setTimeout(conectar, 200);
+          return;
+        }
 
         const observer = new IntersectionObserver((entries) => {
           if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
             this.cargarSiguientePagina();
           }
-        }, { 
-          root: null,
-          rootMargin: '200px', // Carga antes de llegar exactamente al fondo
-          threshold: 0.1 
-        });
+        }, { rootMargin: '250px', threshold: 0.01 });
 
         observer.observe(sentinel);
-      });
+      };
+
+      conectar();
     },
 
     async eliminarComprobante(identificador) {
