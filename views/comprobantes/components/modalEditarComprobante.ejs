@@ -6,6 +6,7 @@
 
 <div x-data="{
   modalAbierto: false,
+  cargando: false,
   itemEdicion: null,
 
   obtenerTasaSocio(nombreSocio) {
@@ -46,11 +47,56 @@
     } else {
       this.itemEdicion.m2_socio = (tasa2 > 0 ? (montoLocal / tasa2) : montoLocal).toFixed(2);
     }
+  },
+
+  async guardarModal() {
+    if (!this.itemEdicion || this.cargando) return;
+    this.cargando = true;
+
+    const hashTarget = this.itemEdicion.hash_largo || this.itemEdicion.id;
+
+    const payload = {
+      hash_largo: hashTarget,
+      banco: this.itemEdicion.banco,
+      referencia: this.itemEdicion.referencia,
+      titular: this.itemEdicion.titular,
+      socio_1: this.itemEdicion.nombre_socio_1,
+      socio_2: this.itemEdicion.nombre_socio_2,
+      nombre_socio_1: this.itemEdicion.nombre_socio_1,
+      nombre_socio_2: this.itemEdicion.nombre_socio_2,
+      tipo_manual: this.itemEdicion.tipo_manual || 'D',
+      moneda: this.itemEdicion.moneda,
+      monto: parseFloat(this.itemEdicion.monto || 0),
+      m1_socio: parseFloat(this.itemEdicion.m1_socio || 0),
+      m2_socio: parseFloat(this.itemEdicion.m2_socio || 0),
+      monto_1: parseFloat(this.itemEdicion.m1_socio || 0),
+      monto_2: parseFloat(this.itemEdicion.m2_socio || 0),
+      loteActivo: this.itemEdicion.lote_tasa_asignado || 'T070'
+    };
+
+    try {
+      const res = await fetch(`/api/v2/comprobantes/${encodeURIComponent(hashTarget)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error('Error al guardar en el servidor');
+
+      // 🟢 Disparar evento global para actualizar la card en la pantalla
+      window.dispatchEvent(new CustomEvent('comprobante-actualizado', { detail: payload }));
+
+      this.modalAbierto = false;
+    } catch (err) {
+      alert('⚠️ Error al congelar el comprobante: ' + err.message);
+    } finally {
+      this.cargando = false;
+    }
   }
 }" 
 @abrir-modal-edicion.window="
   if ($event.detail) { 
-    const raw = $event.detail.comprobante || $event.detail;
+    const raw = $event.detail.comprobante \vert{}\vert{}$event.detail;
     const idHash = String(raw.hash_largo || raw.id || raw.referencia || '').trim();
     const s1 = raw.nombre_socio_1 || raw.socio_1 || raw.grupo_1?.grupo || 'GENERAL';
     const s2 = raw.nombre_socio_2 || raw.socio_2 || raw.grupo_2?.grupo || 'GENERAL';
@@ -67,7 +113,8 @@
       m1_socio: raw.m1_socio ?? raw.monto_1 ?? raw.me1 ?? 0,
       m2_socio: raw.m2_socio ?? raw.monto_2 ?? raw.me2 ?? 0,
       tipo_manual: (raw.tipo_manual || raw.tipo || raw.tipo_op || 'D').toUpperCase(),
-      moneda: (raw.moneda || raw.moneda_local || 'USDT').toUpperCase()
+      moneda: (raw.moneda || raw.moneda_local || 'USDT').toUpperCase(),
+      lote_tasa_asignado: raw.lote_tasa || raw.lote || 'T070'
     }));
 
     modalAbierto = true; 
@@ -95,7 +142,7 @@
                   class="text-slate-400 hover:text-white text-base font-bold p-1 transition-colors cursor-pointer">✕</button>
         </div>
 
-        <!-- CUERPO PRINCIPAL DEL MONOLITO -->
+        <!-- CUERPO PRINCIPAL DEL MODAL -->
         <template x-if="itemEdicion">
           <div class="space-y-3.5 text-xs">
             
@@ -248,27 +295,19 @@
             <div class="flex flex-wrap justify-between items-center pt-3 border-t border-blue-900/60 gap-2">
               <div class="flex gap-2">
                 <button type="button" 
-                        @click="if (typeof eliminarComprobante === 'function') eliminarComprobante(itemEdicion.hash_largo || itemEdicion.id); modalAbierto = false" 
+                        @click="modalAbierto = false" 
                         class="px-3.5 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-600/50 text-rose-300 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-1 text-xs cursor-pointer">
-                  🗑️ Eliminar
-                </button>
-                <button type="button" 
-                        @click="if (typeof releerIAModal === 'function') releerIAModal(); else if (typeof solicitarRelecturaIA === 'function') solicitarRelecturaIA(itemEdicion.hash_largo || itemEdicion.id)" 
-                        class="px-3 py-2 bg-purple-950/80 hover:bg-purple-900 border border-purple-500/50 text-purple-300 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-1.5 text-xs cursor-pointer">
-                  🤖 Releer IA
+                  🗑️ Cancelar
                 </button>
               </div>
               
               <div class="flex gap-2">
                 <button type="button" 
-                        @click="modalAbierto = false" 
-                        class="px-3.5 py-2 bg-blue-950 hover:bg-blue-900 text-slate-300 rounded-xl font-bold border border-blue-900 transition-colors text-xs cursor-pointer">
-                  Cancelar
-                </button>
-                <button type="button" 
-                        @click="if (typeof guardarCambiosModal === 'function') { guardarCambiosModal(); modalAbierto = false; } else if (typeof guardarCambiosComprobante === 'function') { guardarCambiosComprobante(itemEdicion.hash_largo || itemEdicion.id, itemEdicion); modalAbierto = false; }" 
-                        class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-black shadow-lg shadow-cyan-950/50 transition-all active:scale-95 flex items-center gap-1.5 text-xs cursor-pointer">
-                  💾 Guardar & Congelar
+                        @click="guardarModal()" 
+                        :disabled="cargando"
+                        class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-black shadow-lg shadow-cyan-950/50 transition-all active:scale-95 flex items-center gap-1.5 text-xs cursor-pointer disabled:opacity-50">
+                  <span x-show="!cargando">💾 Guardar & Congelar</span>
+                  <span x-show="cargando">⏳ Guardando...</span>
                 </button>
               </div>
             </div>
