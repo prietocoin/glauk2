@@ -1,26 +1,75 @@
 <!-- ================================================================= -->
 <!-- COMPONENTE: modalEditarComprobante.ejs                            -->
 <!-- UBICACIÓN: views/comprobantes/components/                         -->
-<!-- RESPONSABILIDAD: Modal fiel al diseño monolítico de Auditoría     -->
+<!-- RESPONSABILIDAD: Modal con Recalculo Dinámico de Montos / Socios  -->
 <!-- ================================================================= -->
 
-<div @abrir-modal-edicion.window="
+<div x-data="{
+  modalAbierto: false,
+  itemEdicion: null,
+
+  obtenerTasaSocio(nombreSocio) {
+    if (!nombreSocio || nombreSocio === 'GENERAL') return 1.0;
+    const sObj = (typeof directorio !== 'undefined' ? directorio : []).find(d => 
+      String(typeof d === 'object' ? d.nombre : d).trim().toUpperCase() === String(nombreSocio).trim().toUpperCase()
+    );
+    return parseFloat(sObj?.tasa || sObj?.tasa_base || 1.0) || 1.0;
+  },
+
+  obtenerMonedaBaseSocio(nombreSocio) {
+    if (!nombreSocio || nombreSocio === 'GENERAL') return 'USDT';
+    const sObj = (typeof directorio !== 'undefined' ? directorio : []).find(d => 
+      String(typeof d === 'object' ? d.nombre : d).trim().toUpperCase() === String(nombreSocio).trim().toUpperCase()
+    );
+    return sObj?.moneda_base || sObj?.moneda || 'USDT';
+  },
+
+  recalcularMontos() {
+    if (!this.itemEdicion) return;
+    const montoLocal = Math.abs(parseFloat(this.itemEdicion.monto || 0));
+    const monedaRecibo = String(this.itemEdicion.moneda || 'USDT').toUpperCase();
+
+    // SOCIO 1
+    const mBase1 = this.obtenerMonedaBaseSocio(this.itemEdicion.nombre_socio_1);
+    const tasa1 = this.obtenerTasaSocio(this.itemEdicion.nombre_socio_1);
+    if (mBase1 === monedaRecibo) {
+      this.itemEdicion.m1_socio = montoLocal.toFixed(2);
+    } else {
+      this.itemEdicion.m1_socio = (tasa1 > 0 ? (montoLocal / tasa1) : montoLocal).toFixed(2);
+    }
+
+    // SOCIO 2
+    const mBase2 = this.obtenerMonedaBaseSocio(this.itemEdicion.nombre_socio_2);
+    const tasa2 = this.obtenerTasaSocio(this.itemEdicion.nombre_socio_2);
+    if (mBase2 === monedaRecibo) {
+      this.itemEdicion.m2_socio = montoLocal.toFixed(2);
+    } else {
+      this.itemEdicion.m2_socio = (tasa2 > 0 ? (montoLocal / tasa2) : montoLocal).toFixed(2);
+    }
+  }
+}" 
+@abrir-modal-edicion.window="
   if ($event.detail) { 
     const raw = $event.detail.comprobante || $event.detail;
+    const idHash = String(raw.hash_largo || raw.id || raw.referencia || '').trim();
     const s1 = raw.nombre_socio_1 || raw.socio_1 || raw.grupo_1?.grupo || 'GENERAL';
     const s2 = raw.nombre_socio_2 || raw.socio_2 || raw.grupo_2?.grupo || 'GENERAL';
     
     itemEdicion = JSON.parse(JSON.stringify({
       ...raw,
+      id: idHash,
+      hash_largo: idHash,
       nombre_socio_1: s1,
       socio_1: s1,
       nombre_socio_2: s2,
       socio_2: s2,
-      m1_socio: raw.m1_socio ?? raw.monto_1 ?? raw.me1 ?? raw.monto ?? 0,
-      m2_socio: raw.m2_socio ?? raw.monto_2 ?? raw.me2 ?? raw.monto ?? 0,
+      monto: Math.abs(parseFloat(raw.monto || raw.monto_local || 0)),
+      m1_socio: raw.m1_socio ?? raw.monto_1 ?? raw.me1 ?? 0,
+      m2_socio: raw.m2_socio ?? raw.monto_2 ?? raw.me2 ?? 0,
       tipo_manual: (raw.tipo_manual || raw.tipo || raw.tipo_op || 'D').toUpperCase(),
       moneda: (raw.moneda || raw.moneda_local || 'USDT').toUpperCase()
     }));
+
     modalAbierto = true; 
   }
 ">
@@ -102,12 +151,10 @@
                 <div>
                   <label class="block text-[8px] font-bold text-cyan-400 uppercase mb-0.5">Socio 1 (Impacto)</label>
                   <select x-model="itemEdicion.nombre_socio_1" 
+                          @change="recalcularMontos()"
                           class="w-full bg-[#080e26] border border-cyan-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
                     <option value="GENERAL">GENERAL</option>
-                    <template x-if="itemEdicion.nombre_socio_1 && itemEdicion.nombre_socio_1 !== 'GENERAL' && !(directorio || []).some(d => (typeof d === 'object' ? d.nombre : d) === itemEdicion.nombre_socio_1)">
-                      <option :value="itemEdicion.nombre_socio_1" x-text="itemEdicion.nombre_socio_1" selected></option>
-                    </template>
-                    <template x-for="(s, idx) in (directorio || [])" :key="'ed-s1-' + idx">
+                    <template x-for="(s, idx) in (typeof directorio !== 'undefined' ? directorio : [])" :key="'ed-s1-' + idx">
                       <option :value="typeof s === 'object' ? (s.nombre || '') : s" 
                               :selected="(typeof s === 'object' ? s.nombre : s) === itemEdicion.nombre_socio_1"
                               x-text="typeof s === 'object' ? (s.nombre || '') : s"></option>
@@ -117,12 +164,10 @@
                 <div>
                   <label class="block text-[8px] font-bold text-pink-400 uppercase mb-0.5">Socio 2 (Contraparte)</label>
                   <select x-model="itemEdicion.nombre_socio_2" 
+                          @change="recalcularMontos()"
                           class="w-full bg-[#080e26] border border-pink-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
                     <option value="GENERAL">GENERAL</option>
-                    <template x-if="itemEdicion.nombre_socio_2 && itemEdicion.nombre_socio_2 !== 'GENERAL' && !(directorio || []).some(d => (typeof d === 'object' ? d.nombre : d) === itemEdicion.nombre_socio_2)">
-                      <option :value="itemEdicion.nombre_socio_2" x-text="itemEdicion.nombre_socio_2" selected></option>
-                    </template>
-                    <template x-for="(s, idx) in (directorio || [])" :key="'ed-s2-' + idx">
+                    <template x-for="(s, idx) in (typeof directorio !== 'undefined' ? directorio : [])" :key="'ed-s2-' + idx">
                       <option :value="typeof s === 'object' ? (s.nombre || '') : s" 
                               :selected="(typeof s === 'object' ? s.nombre : s) === itemEdicion.nombre_socio_2"
                               x-text="typeof s === 'object' ? (s.nombre || '') : s"></option>
@@ -151,6 +196,7 @@
                   <div>
                     <label class="block text-[8px] font-bold text-emerald-400 uppercase mb-0.5">Moneda Recibo</label>
                     <select x-model="itemEdicion.moneda" 
+                            @change="recalcularMontos()"
                             class="w-full bg-[#080e26] border border-emerald-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
                       <template x-for="m in ['USD','USDT','ECU','VES','COP','PEN','ARS','BRL','CLP','MXN','PYG','BOB','EUR','CAD','GBP']" :key="m">
                         <option :value="m" x-text="m" :selected="m === itemEdicion.moneda"></option>
@@ -163,6 +209,7 @@
                     <input type="number" 
                            step="any" 
                            x-model="itemEdicion.monto" 
+                           @input="recalcularMontos()"
                            class="w-full bg-[#080e26] border border-emerald-500/40 rounded-lg px-2 py-1.5 text-xs text-emerald-300 font-mono font-bold outline-none">
                   </div>
 
@@ -219,7 +266,7 @@
                   Cancelar
                 </button>
                 <button type="button" 
-                        @click="typeof guardarEdicionComprobante === 'function' ? guardarEdicionComprobante(itemEdicion) : guardarCambios(itemEdicion)" 
+                        @click="guardarCambiosComprobante(itemEdicion.hash_largo || itemEdicion.id, itemEdicion); modalAbierto = false" 
                         class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-black shadow-lg shadow-cyan-950/50 transition-all active:scale-95 flex items-center gap-1.5 text-xs cursor-pointer">
                   💾 Guardar & Congelar
                 </button>
