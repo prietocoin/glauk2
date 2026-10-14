@@ -147,23 +147,47 @@ export function comprobantesState() {
     },
 
     // Respaldo por IntersectionObserver nativo si no se usa x-intersect
-    iniciarObserverFallback() {
-      const conectar = () => {
-        const sentinel = document.getElementById('sentinel-scroll');
-        if (!sentinel) {
-          setTimeout(conectar, 200);
-          return;
+   // DENTRO DE comprobantesState.js
+
+iniciarObserverFallback() {
+  this.$nextTick(() => {
+    // 1. Escuchar el evento de scroll global y de contenedores principales
+    const dispararCargaSiCorresponde = () => {
+      if (this.cargando || !this.hayMasDatos) return;
+
+      const sentinel = document.getElementById('sentinel-scroll');
+      if (!sentinel) return;
+
+      const rect = sentinel.getBoundingClientRect();
+      const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+
+      // Si el centinela entra a 300px del área visible de la pantalla
+      if (rect.top <= windowHeight + 300) {
+        this.cargarSiguientePagina();
+      }
+    };
+
+    // Escuchar scroll de la ventana
+    window.addEventListener('scroll', dispararCargaSiCorresponde, { passive: true });
+
+    // Escuchar scroll en contenedores internos con overflow (por si la app usa layout fijo)
+    document.querySelectorAll('.overflow-y-auto, .overflow-auto, main, body').forEach(el => {
+      el.addEventListener('scroll', dispararCargaSiCorresponde, { passive: true });
+    });
+
+    // 2. IntersectionObserver estándar como respaldo adicional
+    const sentinel = document.getElementById('sentinel-scroll');
+    if (sentinel) {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
+          this.cargarSiguientePagina();
         }
+      }, { rootMargin: '300px' });
 
-        const observer = new IntersectionObserver((entries) => {
-          if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
-            this.cargarSiguientePagina();
-          }
-        }, { rootMargin: '250px', threshold: 0.01 });
-
-        observer.observe(sentinel);
-      };
-
+      observer.observe(sentinel);
+    }
+  });
+}
       conectar();
     },
 
