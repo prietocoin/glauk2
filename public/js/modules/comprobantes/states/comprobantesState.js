@@ -161,37 +161,52 @@ export function comprobantesState() {
     },
 
     // 🟢 DISPARADOR DE CARGA POR INTERACCIÓN DIRECTA (RUEDA / TOUCH / SCROLL)
+   // 🟢 ESCUCHADOR UNIVERSAL DE SCROLL + INTERSECCIÓN
     iniciarEscuchadoresScroll() {
       this.$nextTick(() => {
-        let debounceTimer;
-
-        const comprobarYForzarCarga = () => {
+        const intentarCargar = () => {
           if (this.cargando || !this.hayMasDatos) return;
 
-          clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(() => {
-            // Si aún quedan tarjetas en el buffer por renderizar, las revelamos al usuario
-            if (this.items.length < this.todosLosItems.length && this.items.length < this.capMaximoDOM) {
-              this.cargarSiguientePagina();
-            }
-          }, 100);
+          const sentinel = document.getElementById('sentinel-scroll');
+          if (!sentinel) return;
+
+          const rect = sentinel.getBoundingClientRect();
+          const vh = window.innerHeight || document.documentElement.clientHeight;
+
+          // Si el centinela entra a menos de 600px del área visible
+          if (rect.top <= vh + 600) {
+            this.cargarSiguientePagina();
+          }
         };
 
-        // Escuchar la rueda del ratón (wheel) en cualquier parte de la pantalla
-        window.addEventListener('wheel', (e) => {
-          if (e.deltaY > 0) { // Si el usuario desplaza hacia abajo
-            comprobarYForzarCarga();
+        // 1. Escuchar eventos en Window y en la fase de captura de Document
+        window.addEventListener('scroll', intentarCargar, { passive: true });
+        document.addEventListener('scroll', intentarCargar, { capture: true, passive: true });
+
+        // 2. Adjuntar listener de scroll A TODOS LOS ELEMENTOS CON OVERFLOW en el DOM
+        document.querySelectorAll('div, main, section, body').forEach(el => {
+          const style = window.getComputedStyle(el);
+          if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+            el.addEventListener('scroll', intentarCargar, { passive: true });
           }
-        }, { passive: true });
+        });
 
-        // Escuchar desplazamiento en pantallas táctiles / móviles
-        window.addEventListener('touchmove', comprobarYForzarCarga, { passive: true });
+        // 3. Polling de respaldo cada 300ms (Si el usuario mueve la rueda o el drag)
+        setInterval(intentarCargar, 300);
 
-        // Escuchar scroll nativo por si acaso
-        document.addEventListener('scroll', comprobarYForzarCarga, { capture: true, passive: true });
+        // 4. IntersectionObserver como guardián nativo
+        const sentinel = document.getElementById('sentinel-scroll');
+        if (sentinel) {
+          const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+              intentarCargar();
+            }
+          }, { rootMargin: '400px' });
+
+          observer.observe(sentinel);
+        }
       });
     },
-
     async eliminarComprobante(identificador) {
       if (!identificador) return;
 
