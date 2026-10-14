@@ -5,16 +5,16 @@
 
 /**
  * Trunca o normaliza el valor numérico de la tasa.
- * Si viene 'N/A', nulo o un valor no válido, retorna 0.
+ * Si viene 'N/A', nulo o un valor no válido, retorna 1.0 por defecto.
  */
 function truncarTasaComercial(val) {
-  if (val === 'N/A' || val === null || val === undefined) return 0;
+  if (val === 'N/A' || val === null || val === undefined) return 1.0;
   const num = parseFloat(val);
-  return isNaN(num) || num <= 0 ? 0 : Math.floor(num * 10000) / 10000;
+  return isNaN(num) || num <= 0 ? 1.0 : Math.floor(num * 10000) / 10000;
 }
 
 /**
- * Devuelve la micro-insignia visual según el ROL de la entidad
+ * Devuelve la micro-insignia visual según el ROL de la entidad.
  */
 export function obtenerInsigniaRol(rol) {
   const r = String(rol || '').toUpperCase().trim();
@@ -28,15 +28,15 @@ export function obtenerInsigniaRol(rol) {
 
 /**
  * Normaliza y enriquece el objeto recibido de la API v2 (comprobantes_final) 
- * para consumo seguro en Alpine.js.
+ * para consumo seguro en Alpine.js y renderizado instantáneo de cards 2x.
  */
-export function prepararEdicionComprobante(item, loteActivo = 'T071') {
+export function prepararEdicionComprobante(item = {}, loteActivo = 'T070') {
   if (!item) return {};
 
   const c = item.comprobante || item;
 
-  // 1. IDENTIFICADORES Y HASH
-  const idReal = String(c.id || c.hash_largo || item.id || item.hash_largo || c.referencia || '').trim();
+  // 1. IDENTIFICADORES Y HASH LARGO
+  const idReal = String(c.hash_largo || item.hash_largo || c.id || item.id || c.referencia || '').trim();
   const hashCortoFinal = c.hash_corto || item.hash_corto || (idReal ? idReal.slice(0, 8).toUpperCase() : 'HASH');
 
   // 2. FECHAS Y HORAS ESTÁNDAR V2
@@ -45,7 +45,6 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
   const horaFmt = c.hora_fmt || item.hora_fmt || 'S/F';
   const diaHoraHumano = c.dia_hora_humano || item.dia_hora_humano || 'S/F';
   
-  // Construir cadena para input datetime-local del modal auditoría (YYYY-MM-DDTHH:mm)
   let dateInput = c.fecha_hora_input || item.fecha_hora_input || '';
   if (!dateInput && (c.fecha_hora_iso || item.fecha_hora_iso)) {
     dateInput = String(c.fecha_hora_iso || item.fecha_hora_iso).slice(0, 16);
@@ -53,13 +52,14 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
     dateInput = `${fechaFmt}T${horaFmt.slice(0, 5)}`;
   }
 
-  // 3. MONTOS Y MONEDAS
-  const fallbackMonto = Math.abs(parseFloat(c.monto || c.monto_local || item.monto || 0)) || 0;
-  const monedaFinal = String(c.moneda || item.moneda || 'USDT').toUpperCase();
+  // 3. MONTOS Y MONEDAS (Búsqueda exhaustiva sin caer en 0)
+  const rawMonto = c.monto ?? item.monto ?? c.monto_local ?? item.monto_local ?? 0;
+  const fallbackMonto = Math.abs(parseFloat(String(rawMonto).replace(/,/g, '')) || 0);
+  const monedaFinal = String(c.moneda || item.moneda || 'USDT').toUpperCase().trim();
 
   // 4. ENTIDADES Y ROLES
-  const socio1Real = c.nombre_socio_1 || item.nombre_socio_1 || c.socio_1 || item.socio_1 || c.grupo_1?.grupo || 'GENERAL';
-  const socio2Real = c.nombre_socio_2 || item.nombre_socio_2 || c.socio_2 || item.socio_2 || c.grupo_2?.grupo || 'GENERAL';
+  const socio1Real = String(c.nombre_socio_1 || item.nombre_socio_1 || c.socio_1 || item.socio_1 || c.grupo_1?.grupo || 'GENERAL').trim();
+  const socio2Real = String(c.nombre_socio_2 || item.nombre_socio_2 || c.socio_2 || item.socio_2 || c.grupo_2?.grupo || 'GENERAL').trim();
 
   const rol1 = c.rol_1 || item.rol_1 || c.grupo_1?.rol || 'SOCIO';
   const rol2 = c.rol_2 || item.rol_2 || c.grupo_2?.rol || 'SOCIO';
@@ -67,22 +67,24 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
   const t1 = truncarTasaComercial(c.tasa_1 ?? item.tasa_1 ?? c.grupo_1?.tasa);
   const t2 = truncarTasaComercial(c.tasa_2 ?? item.tasa_2 ?? c.grupo_2?.tasa);
 
-  const rawM1 = c.m1_socio ?? item.m1_socio ?? c.monto_1 ?? item.monto_1 ?? c.me1 ?? item.me1 ?? (t1 > 0 ? (fallbackMonto / t1) : fallbackMonto);
-  const rawM2 = c.m2_socio ?? item.m2_socio ?? c.monto_2 ?? item.monto_2 ?? c.me2 ?? item.me2 ?? (t2 > 0 ? (fallbackMonto / t2) : fallbackMonto);
+  // PRESERVACIÓN FIEL DE MONTOS INDIVIDUALES DE SOCIO
+  const rawM1 = c.m1_socio ?? item.m1_socio ?? c.monto_1 ?? item.monto_1 ?? c.me1 ?? item.me1 ?? fallbackMonto;
+  const rawM2 = c.m2_socio ?? item.m2_socio ?? c.monto_2 ?? item.monto_2 ?? c.me2 ?? item.me2 ?? fallbackMonto;
 
-  const calcM1 = Math.abs(parseFloat(rawM1) || 0).toFixed(2);
-  const calcM2 = Math.abs(parseFloat(rawM2) || 0).toFixed(2);
+  const calcM1 = Math.abs(parseFloat(String(rawM1).replace(/,/g, '')) || 0).toFixed(2);
+  const calcM2 = Math.abs(parseFloat(String(rawM2).replace(/,/g, '')) || 0).toFixed(2);
 
-  // 4.1 POLARIDADES PRESERVADAS DESDE LA API
+  // 4.1 POLARIDADES PRESERVADAS
   const pol1 = c.polaridad_1 || item.polaridad_1 || c.grupo_1?.polaridad || item.grupo_1?.polaridad || '+';
   const pol2 = c.polaridad_2 || item.polaridad_2 || c.grupo_2?.polaridad || item.grupo_2?.polaridad || '-';
 
   // 5. IMAGEN CLOUDFLARE R2
-  const rawImg = c.url_r2_comprobante || item.url_r2_comprobante || c.link_img || item.link_img || '';
+  const rawImg = c.url_r2_comprobante || item.url_r2_comprobante || c.link_img || item.link_img || c.url_imagen || item.url_imagen || '';
 
-  // 6. FLAG SOCIO x2
-  const s2Upper = String(socio2Real).toUpperCase().trim();
-  const esX2 = item.es_x2 !== undefined ? Boolean(item.es_x2) : Boolean(s2Upper && s2Upper !== 'GENERAL' && s2Upper !== 'NO DEFINIDO');
+  // 6. DETECCIÓN ROBUSTA DE BANDERAS SOCIO 2x
+  const s2Upper = socio2Real.toUpperCase();
+  const tieneSocio2Valido = s2Upper !== '' && s2Upper !== 'GENERAL' && s2Upper !== 'NO DEFINIDO' && s2Upper !== 'N/A';
+  const esX2 = (item.es_x2 !== undefined) ? Boolean(item.es_x2) : tieneSocio2Valido;
 
   return {
     ...item,
@@ -101,9 +103,9 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
     fecha_hora_comprobante: dateInput,
 
     // METADATOS BANCARIOS
-    banco: (c.banco && c.banco !== '-') ? c.banco : (item.banco || 'BANCO'),
-    referencia: (c.referencia && c.referencia !== '-') ? c.referencia : (item.referencia || 'N/A'),
-    titular: (c.titular && c.titular !== '-') ? c.titular : (item.titular || 'TITULAR NO DEFINIDO'),
+    banco: (c.banco && c.banco !== '-') ? String(c.banco).toUpperCase() : (item.banco ? String(item.banco).toUpperCase() : 'BANCO'),
+    referencia: (c.referencia && c.referencia !== '-') ? String(c.referencia) : (item.referencia || 'N/A'),
+    titular: (c.titular && c.titular !== '-') ? String(c.titular).toUpperCase() : (item.titular ? String(item.titular).toUpperCase() : 'TITULAR NO DEFINIDO'),
     
     // IMAGEN
     link_img: rawImg,
@@ -135,13 +137,13 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
 
     // REGLAS GENERALES Y LOTES
     es_x2: esX2,
-    tipo_op: (c.tipo_op || c.tipo || item.tipo || item.tipo_manual || 'D').toUpperCase(),
-    tipo_manual: (c.tipo_manual || c.tipo || item.tipo || 'D').toUpperCase(),
+    tipo_op: String(c.tipo_op || c.tipo || item.tipo || item.tipo_manual || 'D').toUpperCase(),
+    tipo_manual: String(c.tipo_manual || c.tipo || item.tipo || 'D').toUpperCase(),
     moneda: monedaFinal,
     monto: fallbackMonto,
     monto_local: fallbackMonto,
-    lote: c.lote || item.lote || c.lote_tasa_asignado || item.lote_tasa_asignado || loteActivo,
-    lote_tasa_asignado: c.lote_tasa_asignado || item.lote_tasa_asignado || c.lote || item.lote || loteActivo,
+    lote: c.lote || item.lote || c.lote_tasa_asignado || item.lote_tasa_asignado || c.lote_tasa || item.lote_tasa || loteActivo,
+    lote_tasa_asignado: c.lote_tasa_asignado || item.lote_tasa_asignado || c.lote || item.lote || c.lote_tasa || item.lote_tasa || loteActivo,
 
     // GRUPOS COMPATIBILIDAD ANIDADA
     grupo_1: {
