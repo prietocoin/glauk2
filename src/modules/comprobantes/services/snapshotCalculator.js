@@ -1,4 +1,18 @@
-function calcularSnapshotFinanciero(raw, socio1Data, socio2Data, tasaLote, funddaData = null, naturalezaCalculada = null) {
+/**
+ * @file snapshotCalculator.js
+ * @description Calculadora atómica pura para snapshots financieros y polaridades alineados con comprobantes_final.
+ */
+
+/**
+ * Sanitiza valores numéricos evitando NaN o "N/A".
+ */
+function sanitizarNumero(val, fallback = 0) {
+  if (val === 'N/A' || val === null || val === undefined) return fallback;
+  const num = parseFloat(val);
+  return isNaN(num) ? fallback : num;
+}
+
+function calcularSnapshotFinanciero(raw = {}, socio1Data = {}, socio2Data = {}, tasaLote = {}, funddaData = null, naturalezaCalculada = null) {
   const montoRaw = Math.abs(parseFloat(String(raw?.monto || 0).replace(/,/g, '')) || 0);
   const divisaRaw = String(raw?.moneda || 'USDT').toUpperCase().trim();
   const monedaSocio1 = String(socio1Data?.moneda_base || socio1Data?.moneda_socio || 'USDT').toUpperCase().trim();
@@ -6,13 +20,13 @@ function calcularSnapshotFinanciero(raw, socio1Data, socio2Data, tasaLote, fundd
   // 1. Prioridad: Naturaleza calculada por regla imperativa/perfil
   let tipoOpBase = naturalezaCalculada || String(raw?.tipo_manual || raw?.tipo_op || 'D').toUpperCase().trim().charAt(0);
 
-  // 2. Regla Imperativa Backup
+  // 2. Regla Imperativa Backup (Abono si las monedas coinciden)
   if (monedaSocio1 === divisaRaw && socio1Data?.nombre && socio1Data.nombre.toUpperCase() !== 'GENERAL') {
     tipoOpBase = 'A';
   }
 
-  const cfg1 = resolverConfigSocio(socio1Data, divisaRaw, funddaData);
-  const cfg2 = resolverConfigSocio(socio2Data, divisaRaw, funddaData);
+  const cfg1 = typeof resolverConfigSocio === 'function' ? resolverConfigSocio(socio1Data, divisaRaw, funddaData) : { activo: false, hereda: false, confDivisa: { polaridad: '+' } };
+  const cfg2 = typeof resolverConfigSocio === 'function' ? resolverConfigSocio(socio2Data, divisaRaw, funddaData) : { activo: false, hereda: false, confDivisa: { polaridad: '-' } };
 
   const getSigno = (cfg) => (!cfg.activo || tipoOpBase === 'A') ? 1 : (cfg.confDivisa.polaridad !== '-' ? (tipoOpBase === 'D' ? 1 : -1) : (tipoOpBase === 'D' ? -1 : 1));
   let signo1 = getSigno(cfg1);
@@ -24,21 +38,42 @@ function calcularSnapshotFinanciero(raw, socio1Data, socio2Data, tasaLote, fundd
   }
 
   const mapaTasas = tasaLote?.tasas || {};
-  const calc1 = calcularLado(cfg1, signo1, montoRaw, tipoOpBase, divisaRaw, mapaTasas);
-  const calc2 = calcularLado(cfg2, signo2, montoRaw, tipoOpBase, divisaRaw, mapaTasas);
+  const calc1 = typeof calcularLado === 'function' ? calcularLado(cfg1, signo1, montoRaw, tipoOpBase, divisaRaw, mapaTasas) : { mNominal: montoRaw, tasaEfectiva: 0, meUSDT: montoRaw };
+  const calc2 = typeof calcularLado === 'function' ? calcularLado(cfg2, signo2, montoRaw, tipoOpBase, divisaRaw, mapaTasas) : { mNominal: montoRaw, tasaEfectiva: 0, meUSDT: montoRaw };
+
+  const m1 = sanitizarNumero(calc1.mNominal, montoRaw);
+  const t1 = sanitizarNumero(calc1.tasaEfectiva, 0); // 👈 Tasa 0 si no existe
+  const me1 = sanitizarNumero(calc1.meUSDT, m1);
+
+  const m2 = sanitizarNumero(calc2.mNominal, montoRaw);
+  const t2 = sanitizarNumero(calc2.tasaEfectiva, 0); // 👈 Tasa 0 si no existe
+  const me2 = sanitizarNumero(calc2.meUSDT, m2);
+
+  const s1Nombre = String(socio1Data?.nombre || 'GENERAL').trim();
+  const s2Nombre = String(socio2Data?.nombre || 'GENERAL').trim();
 
   return {
-    hash_largo: raw.hash_largo,
-    socio_1: socio1Data?.nombre || 'GENERAL',
-    tipo_op1: tipoOpBase, // 👈 Pasa solo 'A', 'P' o 'D' limpios
-    monto_1: isNaN(calc1.mNominal) ? 0 : calc1.mNominal,
-    tasa_1: isNaN(calc1.tasaEfectiva) ? 1.0 : calc1.tasaEfectiva,
-    me1: isNaN(calc1.meUSDT) ? 0 : calc1.meUSDT,
-    socio_2: socio2Data?.nombre && socio2Data.nombre.toUpperCase() !== 'GENERAL' ? socio2Data.nombre : null,
+    hash_largo: raw.hash_largo || raw.id,
+    socio_1: s1Nombre,
+    nombre_socio_1: s1Nombre,
+    tipo_op1: tipoOpBase,
+    monto_1: m1,
+    m1_socio: m1,
+    tasa_1: t1,
+    me1: me1,
+    polaridad_1: signo1 >= 0 ? '+' : '-',
+    
+    socio_2: (s2Nombre && s2Nombre.toUpperCase() !== 'GENERAL') ? s2Nombre : 'GENERAL',
+    nombre_socio_2: (s2Nombre && s2Nombre.toUpperCase() !== 'GENERAL') ? s2Nombre : 'GENERAL',
     tipo_op2: tipoOpBase,
-    monto_2: isNaN(calc2.mNominal) ? 0 : calc2.mNominal,
-    tasa_2: isNaN(calc2.tasaEfectiva) ? 1.0 : calc2.tasaEfectiva,
-    me2: isNaN(calc2.meUSDT) ? 0 : calc2.meUSDT,
-    lote_tasa: raw?.id_tasa || tasaLote?.id_tasa || 'T052'
+    monto_2: m2,
+    m2_socio: m2,
+    tasa_2: t2,
+    me2: me2,
+    polaridad_2: signo2 >= 0 ? '+' : '-',
+
+    lote_tasa: raw?.id_tasa || tasaLote?.id_tasa || 'T070'
   };
 }
+
+module.exports = { calcularSnapshotFinanciero };
