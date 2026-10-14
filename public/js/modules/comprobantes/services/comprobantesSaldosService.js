@@ -37,4 +37,3 @@ export function obtenerSujetoAuditado(filtroSocio = '') {
   }
   return str;
 }
-
