@@ -67,6 +67,10 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
   const calcM1 = Math.abs(parseFloat(rawM1) || 0).toFixed(2);
   const calcM2 = Math.abs(parseFloat(rawM2) || 0).toFixed(2);
 
+  // 🟢 4.1 POLARIDADES PRESERVADAS DESDE LA API
+  const pol1 = c.polaridad_1 || item.polaridad_1 || c.grupo_1?.polaridad || item.grupo_1?.polaridad || '+';
+  const pol2 = c.polaridad_2 || item.polaridad_2 || c.grupo_2?.polaridad || item.grupo_2?.polaridad || '-';
+
   // 5. IMAGEN CLOUDFLARE R2
   const rawImg = c.url_r2_comprobante || item.url_r2_comprobante || c.link_img || item.link_img || '';
 
@@ -109,6 +113,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
     m1_socio: calcM1,
     monto_1: calcM1,
     me1: calcM1,
+    polaridad_1: pol1, // 🟢 PRESERVADO EN LA RAÍZ
 
     // SOCIO 2
     nombre_socio_2: socio2Real,
@@ -120,6 +125,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
     m2_socio: calcM2,
     monto_2: calcM2,
     me2: calcM2,
+    polaridad_2: pol2, // 🟢 PRESERVADO EN LA RAÍZ
 
     // REGLAS GENERALES Y LOTES
     es_x2: esX2,
@@ -136,6 +142,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
       grupo: socio1Real,
       rol: rol1,
       tasa: t1,
+      polaridad: pol1, // 🟢 CONSERVADO EN OBJETO ANIDADO
       monto: calcM1,
       moneda_base: c.moneda_base_socio1 || item.moneda_base_socio1 || 'USDT',
       me: calcM1
@@ -144,6 +151,7 @@ export function prepararEdicionComprobante(item, loteActivo = 'T071') {
       grupo: socio2Real,
       rol: rol2,
       tasa: t2,
+      polaridad: pol2, // 🟢 CONSERVADO EN OBJETO ANIDADO
       monto: calcM2,
       moneda_base: c.moneda_base_socio2 || item.moneda_base_socio2 || 'USDT',
       me: calcM2
