@@ -1,6 +1,6 @@
 /**
  * @file comprobantesMapperService.js
- * @description Mapeador atómico para transformaciones de tarjetas, roles, fechas, hash e imágenes R2.
+ * @description Mapeador atómico determinista basado en timestamp_msg de la API.
  */
 
 function truncarTasaComercial(val) {
@@ -8,9 +8,6 @@ function truncarTasaComercial(val) {
   return isNaN(num) || num <= 0 ? 1.0 : Math.floor(num * 10000) / 10000;
 }
 
-/**
- * Devuelve la micro-insignia visual según el ROL de la entidad
- */
 export function obtenerInsigniaRol(rol) {
   const r = String(rol || '').toUpperCase().trim();
   switch (r) {
@@ -21,95 +18,95 @@ export function obtenerInsigniaRol(rol) {
   }
 }
 
-export function prepararEdicionComprobante(item, loteActivo = 'T063') {
+export function prepararEdicionComprobante(item, loteActivo = 'T071') {
   if (!item) return {};
 
   const c = item.comprobante || item;
 
-  // 🟢 1. EXTRACCIÓN Y PARSEO MULTI-CLAVE DE FECHA Y HORA
-  const rawFechaStr = String(
-    c.fecha_hora_comprobante || 
-    c.fecha_hora_input || 
-    c.fecha_hora || 
-    c.fecha_proceso || 
-    c.fecha_operacion || 
-    c.fecha_comprobante || 
-    c.fecha || 
-    c.created_at || 
-    c.timestamp || ''
-  ).trim();
+  // 1. IDENTIFICADOR CRÍTICO PARA EL BORRADO Y CONSULTA (hash_largo)
+  const idReal = String(c.hash_largo || item.hash_largo || c.id || item.id || c.referencia || '').trim();
+  const hashCortoFinal = c.hash_corto || (idReal ? idReal.slice(0, 8).toUpperCase() : 'HASH');
 
-  let dateInput = '';
+  // 2. EXTRAER Y CONVERTIR TIMESTAMP REAL DE LA API (timestamp_msg)
+  const rawTimestamp = c.timestamp_msg || item.timestamp_msg || c.fecha_hora_comprobante || item.fecha_hora_comprobante || '';
+  
   let fechaFmt = 'S/F';
   let horaFmt = 'S/F';
+  let dateInput = '';
 
-  if (rawFechaStr) {
-    // A) Intentar Parseo como Timestamp o Date ISO/SQL
-    const timestamp = typeof rawFechaStr === 'number' ? rawFechaStr : Date.parse(rawFechaStr);
+  if (rawTimestamp) {
+    let numTs = Number(rawTimestamp);
     
-    if (!isNaN(timestamp)) {
-      const d = new Date(timestamp);
-      const tzOffset = d.getTimezoneOffset() * 60000;
-      const localDate = new Date(d.getTime() - tzOffset);
-      const isoStr = localDate.toISOString();
+    // Si viene en segundos (10 dígitos Unix), convertir a milisegundos
+    if (!isNaN(numTs) && numTs > 0) {
+      if (numTs < 10000000000) {
+        numTs = numTs * 1000;
+      }
+      const d = new Date(numTs);
+      if (!isNaN(d.getTime())) {
+        const tzOffset = d.getTimezoneOffset() * 60000;
+        const localDate = new Date(d.getTime() - tzOffset);
+        const isoStr = localDate.toISOString();
 
-      dateInput = isoStr.slice(0, 16);
-      fechaFmt = isoStr.slice(0, 10); // YYYY-MM-DD
-      horaFmt = isoStr.slice(11, 19); // HH:MM:SS
-    } else {
-      // B) Fallback para cadenas de texto directas de OCR (ej. "14/10/2024 10:11:00")
-      const partes = rawFechaStr.split(/[-_T ]+/);
-      if (partes.length >= 1) fechaFmt = partes[0];
-      if (partes.length >= 2) horaFmt = partes.slice(1).join(' ');
+        dateInput = isoStr.slice(0, 16);
+        fechaFmt = isoStr.slice(0, 10); // YYYY-MM-DD exacta
+        horaFmt = isoStr.slice(11, 19); // HH:MM:SS exacta
+      }
+    } else if (typeof rawTimestamp === 'string') {
+      // Si viniera ya formateada como cadena ISO/SQL
+      const d = new Date(rawTimestamp);
+      if (!isNaN(d.getTime())) {
+        const tzOffset = d.getTimezoneOffset() * 60000;
+        const localDate = new Date(d.getTime() - tzOffset);
+        const isoStr = localDate.toISOString();
+
+        dateInput = isoStr.slice(0, 16);
+        fechaFmt = isoStr.slice(0, 10);
+        horaFmt = isoStr.slice(11, 19);
+      }
     }
   }
 
-  // 🟢 2. EXTRACCIÓN Y PARSEO DE HASH / IDENTIFICADOR
-  const idUnico = c.hash_largo || c.hash || c.id || c._id || c.referencia || '';
-  const hashCortoFinal = c.hash_corto || (idUnico ? String(idUnico).replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase() : 'HASH');
+  const fallbackMonto = Math.abs(parseFloat(c.monto || c.monto_local || item.monto || 0)) || 0;
 
-  const fallbackMonto = Math.abs(parseFloat(c.monto || c.monto_local || 0)) || 0;
+  const socio1Real = c.grupo_1?.grupo || item.grupo_1?.grupo || c.nombre_socio_1 || item.nombre_socio_1 || 'GENERAL';
+  const socio2Real = c.grupo_2?.grupo || item.grupo_2?.grupo || c.nombre_socio_2 || item.nombre_socio_2 || 'GENERAL';
 
-  // Extraer entidades respetando grupo_1 / grupo_2 o fallback plano
-  const socio1Real = c.grupo_1?.grupo || c.nombre_socio_1 || c.socio_1 || c.socio1 || 'GENERAL';
-  const socio2Real = c.grupo_2?.grupo || c.nombre_socio_2 || c.socio_2 || c.socio2 || 'GENERAL';
+  const rol1 = c.grupo_1?.rol || item.grupo_1?.rol || item.rol_1 || 'SOCIO';
+  const rol2 = c.grupo_2?.rol || item.grupo_2?.rol || item.rol_2 || 'SOCIO';
 
-  const rol1 = c.grupo_1?.rol || c.rol_1 || 'SOCIO';
-  const rol2 = c.grupo_2?.rol || c.rol_2 || 'SOCIO';
+  const t1 = truncarTasaComercial(c.grupo_1?.tasa || item.grupo_1?.tasa || item.tasa_1);
+  const t2 = truncarTasaComercial(c.grupo_2?.tasa || item.grupo_2?.tasa || item.tasa_2);
 
-  const t1 = truncarTasaComercial(c.grupo_1?.tasa || c.tasa_1);
-  const t2 = truncarTasaComercial(c.grupo_2?.tasa || c.tasa_2);
-
-  const rawM1 = c.grupo_1?.monto ?? c.m1_socio ?? c.monto_1 ?? c.me1 ?? (t1 > 0 ? (fallbackMonto / t1) : fallbackMonto);
-  const rawM2 = c.grupo_2?.monto ?? c.m2_socio ?? c.monto_2 ?? c.me2 ?? (t2 > 0 ? (fallbackMonto / t2) : fallbackMonto);
+  const rawM1 = c.grupo_1?.monto ?? item.m1_socio ?? item.monto_1 ?? item.me1 ?? (t1 > 0 ? (fallbackMonto / t1) : fallbackMonto);
+  const rawM2 = c.grupo_2?.monto ?? item.m2_socio ?? item.monto_2 ?? item.me2 ?? (t2 > 0 ? (fallbackMonto / t2) : fallbackMonto);
 
   const calcM1 = Math.abs(parseFloat(rawM1) || 0).toFixed(2);
   const calcM2 = Math.abs(parseFloat(rawM2) || 0).toFixed(2);
 
-  // EXTRACCIÓN DEFENSIVA DE LA IMAGEN EN CLOUDFLARE R2
-  const rawImg = c.link_img || c.url_r2_comprobante || c.link_r2 || c.url_imagen || c.url || '';
+  const rawImg = c.url_r2_comprobante || item.url_r2_comprobante || c.link_img || item.link_img || c.url_imagen_1 || item.url_imagen_1 || '';
 
   return {
+    ...item,
     ...c,
-    // METADATOS PARSEADOS
+    // CAMPOS DE CONTROL Y FECHAS PARSEADAS DESDE TIMESTAMP_MSG
+    hash_largo: idReal,
+    id: idReal,
+    hash_corto: hashCortoFinal,
+    
+    timestamp_msg: rawTimestamp,
     fecha_fmt: fechaFmt,
     hora_fmt: horaFmt,
     fecha_hora_input: dateInput,
-    fecha_hora_comprobante: rawFechaStr,
+    fecha_hora_comprobante: dateInput,
 
-    hash_largo: idUnico,
-    id: idUnico,
-    hash_corto: hashCortoFinal,
-
-    banco: (c.banco && c.banco !== '-') ? c.banco : 'BANCO',
-    referencia: (c.referencia && c.referencia !== '-') ? c.referencia : 'N/A',
-    titular: (c.titular && c.titular !== '-') ? c.titular : 'TITULAR NO DEFINIDO',
+    banco: (c.banco && c.banco !== '-') ? c.banco : (item.banco || 'BANCO'),
+    referencia: (c.referencia && c.referencia !== '-') ? c.referencia : (item.referencia || 'N/A'),
+    titular: (c.titular && c.titular !== '-') ? c.titular : (item.titular || 'TITULAR NO DEFINIDO'),
     
-    // IMAGEN DE CLOUDFLARE R2
     link_img: rawImg,
     url_r2_comprobante: rawImg,
 
-    // Nombres y Roles mapeados con insignias
     nombre_socio_1: socio1Real,
     socio_1: socio1Real,
     rol_1: rol1,
@@ -120,14 +117,11 @@ export function prepararEdicionComprobante(item, loteActivo = 'T063') {
     rol_2: rol2,
     badge_2: obtenerInsigniaRol(rol2),
 
-    moneda_base_socio1: c.grupo_1?.moneda_base || c.moneda_base_socio1 || 'USDT',
-    moneda_base_socio2: c.grupo_2?.moneda_base || c.moneda_base_socio2 || 'USDT',
-
-    tipo_manual: (c.tipo || c.tipo_manual || c.naturaleza || 'P').toUpperCase(),
-    moneda: (c.moneda || c.moneda_local || 'ARS').toUpperCase(),
+    tipo_manual: (c.tipo || item.tipo || item.tipo_manual || 'P').toUpperCase(),
+    moneda: (c.moneda || item.moneda || 'USDT').toUpperCase(),
     monto: fallbackMonto,
     monto_local: fallbackMonto,
-    lote_tasa_asignado: c.lote || c.lote_tasa_asignado || loteActivo,
+    lote_tasa_asignado: c.lote || item.lote || item.lote_tasa_asignado || loteActivo,
 
     tasa_1: t1,
     tasa_2: t2,
