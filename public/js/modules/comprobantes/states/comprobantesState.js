@@ -1,7 +1,7 @@
 /**
  * @file comprobantesState.js
  * @description Estado reactivo de Alpine.js - Glaukapi Dashboard.
- * Paginación fluida 20 en 20 (máx 200) y cortafuegos atómico 2x.
+ * Paginación fluida de 20 en 20 (máx 200), cortafuegos 2x y scroll por sondeo continuo.
  */
 
 import { 
@@ -64,7 +64,7 @@ export function comprobantesState() {
     obtenerSujetoAuditado,
     obtenerInsigniaRol,
 
-    // 🟢 ALIAS CRÍTICOS PARA EVITAR 'ReferenceError: comprobantes is not defined' EN PLANTILLAS
+    // ALIAS CRÍTICOS PARA PLANTILLAS EJS
     get comprobantes() {
       return this.items;
     },
@@ -109,13 +109,13 @@ export function comprobantesState() {
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 PAGINACIÓN PROGRESIVA CONTROLADA (20 EN 20 HASTA 200)
+    // 🟢 DOSIFICADOR DE SCROLL CORREGIDO (Mantiene activo hayMasDatos si restan elementos)
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
 
       try {
-        // A) Petición inicial a la API si el buffer está vacío
+        // A) Cargar buffer completo en la primera iteración
         if (this.todosLosItems.length === 0) {
           const params = {
             page: 1,
@@ -139,27 +139,23 @@ export function comprobantesState() {
           });
         }
 
-        // B) Calcular el siguiente bloque a incorporar en el DOM
-        const cantidadActual = this.items.length;
-        const siguienteCorte = Math.min(
-          cantidadActual + this.tamanoLote,
-          this.capMaximoDOM,
-          this.todosLosItems.length
-        );
-
-        // Si no hay más que mostrar o llegamos al cap de 200
-        if (siguienteCorte <= cantidadActual || cantidadActual >= this.capMaximoDOM) {
+        if (this.todosLosItems.length === 0) {
+          this.items = [];
           this.hayMasDatos = false;
           return;
         }
 
-        // Asignación directa
-        this.items = this.todosLosItems.slice(0, siguienteCorte);
+        // B) Incremento seguro (+20 tarjetas)
+        const proximoLimite = Math.min(
+          this.items.length + this.tamanoLote,
+          this.capMaximoDOM,
+          this.todosLosItems.length
+        );
 
-        // Evaluar estado final
-        if (this.items.length >= this.todosLosItems.length || this.items.length >= this.capMaximoDOM) {
-          this.hayMasDatos = false;
-        }
+        this.items = this.todosLosItems.slice(0, proximoLimite);
+
+        // C) Evaluar estado final real
+        this.hayMasDatos = this.items.length < this.todosLosItems.length && this.items.length < this.capMaximoDOM;
 
       } catch (err) {
         console.error('❌ Error al cargar lote de comprobantes:', err);
@@ -168,37 +164,42 @@ export function comprobantesState() {
       }
     },
 
-    // 🟢 DETECTOR DE SCROLL ULTRA-ROBUSTO
+    // 🟢 DETECTOR DE SCROLL ULTRA-ROBUSTO (Eventos + Sondeo Polling + IntersectionObserver)
     iniciarEscuchadoresScroll() {
-      const evaluarScroll = () => {
-        if (this.cargando || !this.hayMasDatos) return;
+      this.$nextTick(() => {
+        const evaluarScroll = () => {
+          if (this.cargando || !this.hayMasDatos) return;
 
-        const sentinel = document.getElementById('sentinel-scroll');
-        if (!sentinel) return;
+          const sentinel = document.getElementById('sentinel-scroll');
+          if (!sentinel) return;
 
-        const rect = sentinel.getBoundingClientRect();
-        const vh = window.innerHeight || document.documentElement.clientHeight;
+          const rect = sentinel.getBoundingClientRect();
+          const vh = window.innerHeight || document.documentElement.clientHeight;
 
-        // Dispara la carga cuando el centinela esté a menos de 400px de entrar a pantalla
-        if (rect.top <= vh + 400) {
-          this.cargarSiguientePagina();
-        }
-      };
-
-      // Escuchar eventos en fase de captura (atrapa scroll en divs internos)
-      document.addEventListener('scroll', evaluarScroll, { capture: true, passive: true });
-
-      // Respaldo mediante IntersectionObserver
-      const sentinel = document.getElementById('sentinel-scroll');
-      if (sentinel) {
-        const observer = new IntersectionObserver((entries) => {
-          if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
+          if (rect.top <= vh + 600) {
             this.cargarSiguientePagina();
           }
-        }, { rootMargin: '300px' });
+        };
 
-        observer.observe(sentinel);
-      }
+        // Captura en ventana y contenedores
+        window.addEventListener('scroll', evaluarScroll, { passive: true });
+        document.addEventListener('scroll', evaluarScroll, { capture: true, passive: true });
+
+        // Sondeo activo continuo cada 300ms (fuerza la carga si el contenedor CSS aísla el evento scroll)
+        setInterval(evaluarScroll, 300);
+
+        // IntersectionObserver sobre el Viewport
+        const sentinel = document.getElementById('sentinel-scroll');
+        if (sentinel) {
+          const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+              evaluarScroll();
+            }
+          }, { rootMargin: '500px' });
+
+          observer.observe(sentinel);
+        }
+      });
     },
 
     async eliminarComprobante(identificador) {
