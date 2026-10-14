@@ -3,7 +3,7 @@
  * @description Servicio atómico de red para consumir el CRUD directo de la API v2 (comprobantes_final).
  */
 
-const API_V2_URL = 'https://automat-gaukapi.fyi6ur.easypanel.host/api/v2/comprobantes';
+const API_V2_URL = '/api/v2/comprobantes';
 
 /**
  * Normaliza y limpia el identificador para evitar URLs malformadas como /undefined
@@ -39,7 +39,7 @@ export async function fetchComprobantesPaginados(params = {}) {
   try {
     const { page = 1, limit = 20, socio = '', rol = '', fechaInicio = '', fechaFin = '' } = params;
 
-    const url = new URL(API_V2_URL);
+    const url = new URL(API_V2_URL, window.location.origin);
     url.searchParams.append('page', page);
     url.searchParams.append('limit', limit);
     if (socio) url.searchParams.append('socio', socio);
@@ -80,7 +80,7 @@ export async function guardarCambiosComprobante(hashLargo, payload = {}, loteAct
     return await res.json().catch(() => true);
   } catch (err) {
     console.error('[comprobantesApiService ❌ Save Error]:', err.message);
-    return false;
+    throw err;
   }
 }
 
@@ -94,7 +94,6 @@ export async function solicitarRelecturaIA(hashLargo) {
       throw new Error('No se proporcionó un hash o ID válido para releer con IA');
     }
 
-    // Alineado con la ruta /:hashLargo/releer de comprobantesRoutes.js
     const res = await fetch(`${API_V2_URL}/${encodeURIComponent(idValido)}/releer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
@@ -104,7 +103,7 @@ export async function solicitarRelecturaIA(hashLargo) {
     return await res.json().catch(() => true);
   } catch (err) {
     console.error('[comprobantesApiService ❌ IA Re-read Error]:', err.message);
-    return false;
+    throw err;
   }
 }
 
@@ -127,6 +126,12 @@ export async function eliminarComprobantePorHash(hashLargo) {
     return true;
   } catch (err) {
     console.error('[comprobantesApiService ❌ Delete Error]:', err.message);
-    return false;
+    throw err;
   }
 }
+
+// 🟢 ALIASES DE NO
+export {
+  guardarCambiosComprobante as actualizarComprobanteApi,
+  solicitarRelecturaIA as releerIaApi
+};
