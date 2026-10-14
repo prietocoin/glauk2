@@ -48,6 +48,14 @@ export async function fetchComprobantesPaginados(params = {}) {
     if (fechaFin) url.searchParams.append('fechaFin', fechaFin);
 
     const res = await fetch(url.toString());
+
+    // 🟢 VALIDACIÓN DEFENSIVA: Verificar si la respuesta es JSON antes de parsear
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.warn(`[comprobantesApiService ⚠️ Warning]: La API respondió con formato no JSON (${res.status}). Verifique la ruta en Express.`);
+      return [];
+    }
+
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
 
     const json = await res.json();
@@ -130,7 +138,7 @@ export async function eliminarComprobantePorHash(hashLargo) {
   }
 }
 
-// 🟢 ALIASES DE NO
+// 🟢 ALIASES PARA COMPATIBILIDAD
 export {
   guardarCambiosComprobante as actualizarComprobanteApi,
   solicitarRelecturaIA as releerIaApi
