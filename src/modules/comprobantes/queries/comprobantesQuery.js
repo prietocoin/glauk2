@@ -1,5 +1,6 @@
 /**
  * @file comprobantesQuery.js
+ * @description Consulta directa a la Single Source of Truth asegurando renderizado 2x.
  */
 const db = require('#config/database');
 
@@ -20,6 +21,8 @@ async function obtenerComprobantesFinalPaginados(filtros = {}) {
     whereClauses.push(`(
       LOWER(COALESCE(nombre_socio_1, '')) LIKE $${params.length} 
       OR LOWER(COALESCE(nombre_socio_2, '')) LIKE $${params.length}
+      OR LOWER(COALESCE(socio_1, '')) LIKE $${params.length}
+      OR LOWER(COALESCE(socio_2, '')) LIKE $${params.length}
     )`);
   }
 
