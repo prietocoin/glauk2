@@ -9,14 +9,27 @@ const API_V2_URL = 'https://automat-gaukapi.fyi6ur.easypanel.host/api/v2/comprob
  * Normaliza y limpia el identificador para evitar URLs malformadas como /undefined
  */
 function obtenerIdentificadorValido(identificador, fallbackPayload = {}) {
-  const target = identificador || 
-                 fallbackPayload?.hash_largo || 
-                 fallbackPayload?.hash || 
-                 fallbackPayload?.id || 
-                 fallbackPayload?._id || 
-                 fallbackPayload?.referencia || '';
+  let target = '';
 
-  return String(target).trim();
+  if (typeof identificador === 'object' && identificador !== null) {
+    target = identificador.hash_largo || 
+             identificador.id || 
+             identificador._id || 
+             identificador.hash || 
+             identificador.referencia || '';
+  } else {
+    target = identificador;
+  }
+
+  if (!target) {
+    target = fallbackPayload?.hash_largo || 
+             fallbackPayload?.hash || 
+             fallbackPayload?.id || 
+             fallbackPayload?._id || 
+             fallbackPayload?.referencia || '';
+  }
+
+  return String(target || '').trim();
 }
 
 /**
@@ -55,10 +68,12 @@ export async function guardarCambiosComprobante(hashLargo, payload = {}, loteAct
       throw new Error('No se proporcionó un hash o ID válido para actualizar');
     }
 
+    const dataPayload = (typeof hashLargo === 'object' && hashLargo !== null) ? hashLargo : payload;
+
     const res = await fetch(`${API_V2_URL}/${encodeURIComponent(idValido)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...payload, loteActivo })
+      body: JSON.stringify({ ...dataPayload, loteActivo })
     });
 
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
