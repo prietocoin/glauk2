@@ -1,11 +1,11 @@
 /**
  * @file saldosCalculatorService.js
- * @description Servicio matemático puro para cálculo algebraico de saldos y movimientos.
+ * @description Servicio matemático puro para cálculo algebraico de saldos y movimientos desde comprobantes_final.
  */
 import { filtrarComprobantesPorRango } from '../utils/saldosFilterUtils.js';
 
 /**
- * Suma los movimientos de un socio en específico.
+ * Suma o resta los movimientos de un socio en específico considerando su polaridad.
  */
 export function calcularMovimientoFiltradoTotal(comprobantes = [], socioTarget = '') {
   if (!Array.isArray(comprobantes)) return 0;
@@ -15,11 +15,19 @@ export function calcularMovimientoFiltradoTotal(comprobantes = [], socioTarget =
     const s1 = (item.nombre_socio_1 || item.socio_1 || '').trim().toUpperCase();
     const s2 = (item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
 
-    const val = (target && s2 === target && s1 !== target)
-      ? parseFloat(item.monto_2 ?? item.m2_socio ?? 0) || 0
-      : parseFloat(item.monto_1 ?? item.m1_socio ?? item.monto) || 0;
+    let val = 0;
+    let pol = '+';
 
-    return sum + val;
+    if (target && s2 === target && s1 !== target) {
+      val = parseFloat(item.m2_socio ?? item.monto_2 ?? 0) || 0;
+      pol = item.polaridad_2 || item.grupo_2?.polaridad || '-';
+    } else {
+      val = parseFloat(item.m1_socio ?? item.monto_1 ?? item.monto ?? 0) || 0;
+      pol = item.polaridad_1 || item.grupo_1?.polaridad || '+';
+    }
+
+    const signo = pol === '-' ? -1 : 1;
+    return sum + (val * signo);
   }, 0);
 }
 
@@ -48,9 +56,15 @@ export function calcularSociosPendientesConsolidado(directorio = [], comprobante
         const s2 = (item.nombre_socio_2 || item.socio_2 || '').trim().toUpperCase();
 
         if (s1 === nombreUpper) {
-          return acc + (parseFloat(item.monto_1 ?? item.m1_socio ?? item.monto) || 0);
+          const val1 = parseFloat(item.m1_socio ?? item.monto_1 ?? item.monto) || 0;
+          const pol1 = item.polaridad_1 || item.grupo_1?.polaridad || '+';
+          const signo1 = pol1 === '-' ? -1 : 1;
+          return acc + (val1 * signo1);
         } else if (s2 === nombreUpper) {
-          return acc + (parseFloat(item.monto_2 ?? item.m2_socio) || 0);
+          const val2 = parseFloat(item.m2_socio ?? item.monto_2) || 0;
+          const pol2 = item.polaridad_2 || item.grupo_2?.polaridad || '-';
+          const signo2 = pol2 === '-' ? -1 : 1;
+          return acc + (val2 * signo2);
         }
         return acc;
       }, 0);
