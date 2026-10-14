@@ -8,6 +8,25 @@
      x-data="{
        get urlRecibo() {
          return item.link_img || item.url_r2_comprobante || item.url_r2 || item.url_imagen || item.comprobante?.link_img || '';
+       },
+       get rawFecha() {
+         return item.fecha_fmt || item.fecha_hora_input || item.fecha_hora_comprobante || item.fecha_comprobante || item.fecha_proceso || item.fecha || item.created_at || item.timestamp || item.comprobante?.fecha_hora_comprobante || '';
+       },
+       get fechaTexto() {
+         if (item.fecha_fmt && item.fecha_fmt !== 'S/F') return item.fecha_fmt;
+         const f = String(this.rawFecha).trim();
+         if (!f) return 'S/F';
+         if (f.includes('T')) return f.split('T')[0];
+         if (f.includes(' ')) return f.split(' ')[0];
+         return f.substring(0, 10);
+       },
+       get horaTexto() {
+         if (item.hora_fmt && item.hora_fmt !== 'S/F') return item.hora_fmt;
+         const f = String(this.rawFecha).trim();
+         if (!f) return 'S/F';
+         if (f.includes('T')) return f.split('T')[1]?.substring(0, 8) || 'S/F';
+         if (f.includes(' ')) return f.split(' ')[1] || 'S/F';
+         return 'S/F';
        }
      }">
   
@@ -42,20 +61,20 @@
     <!-- 1. 📅 FECHA -->
     <div class="w-full text-center py-0.5 rounded bg-cyan-950/90 text-cyan-300 font-mono text-[8px] sm:text-[9px] font-bold border border-cyan-500/50 shadow truncate px-0.5"
          title="Fecha del comprobante">
-      📅 <span x-text="item.fecha_fmt || 'S/F'"></span>
+      📅 <span x-text="fechaTexto"></span>
     </div>
 
     <!-- 2. 🕒 DÍA Y HORA -->
     <div class="w-full text-center py-0.5 rounded bg-indigo-950/90 text-indigo-300 font-mono text-[8px] sm:text-[9px] font-bold border border-indigo-500/50 shadow truncate px-0.5"
          title="Día y Hora exacta">
-      🕒 <span x-text="item.hora_fmt || 'S/F'"></span>
+      🕒 <span x-text="horaTexto"></span>
     </div>
 
     <!-- 3. 🔑 HASH CORTO -->
     <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-300 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700/80 truncate px-0.5 shadow flex items-center justify-center gap-1" 
          title="Hash de verificación">
       <span>🔑</span>
-      <span x-text="item.hash_corto || 'HASH'"></span>
+      <span x-text="item.hash_corto || (item.hash_largo ? String(item.hash_largo).substring(0,8).toUpperCase() : (item.referencia ? String(item.referencia).substring(0,8) : 'HASH'))"></span>
     </div>
     
     <!-- 4. 🏷️ TIPO OP & BADGE x2 -->
