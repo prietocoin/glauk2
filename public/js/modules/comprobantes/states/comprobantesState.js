@@ -1,6 +1,6 @@
 /**
  * @file comprobantesState.js
- * @description Estado reactivo Alpine.js corregido con paginación real de 20 en 20 y cap de 200.
+ * @description Estado reactivo Alpine.js con Infinite Scroll progresivo (20 en 20 hasta 200).
  */
 
 import { 
@@ -18,13 +18,9 @@ import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante, obtenerInsigniaRol } from '../services/comprobantesMapperService.js';
 import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/comprobantesSaldosService.js';
 
-/**
- * Calcula el primer y último día del mes en curso en zona horaria America/Caracas (YYYY-MM-DD)
- */
 function obtenerRangoMesActualCaracas() {
   const timeZone = 'America/Caracas';
   const ahora = new Date();
-
   const fmt = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
 
   const primerDia = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
@@ -40,14 +36,16 @@ export function comprobantesState() {
   const { fechaInicio: inicioMes, fechaFin: finMes } = obtenerRangoMesActualCaracas();
 
   const state = {
-    // 1. ESTADO REACTIVO Y CONTROLES DE PAGINACIÓN
-    todosLosItems: [], // Buffer completo devuelto por la API
-    items: [],          // Ítems visibles renderizados en el DOM (Inicial 20 -> Máx 200)
+    // ESTADO DE DATOS
+    todosLosItems: [],  // Catálogo completo de la API
+    items: [],          // Lote visible en pantalla (20, 40, 60... máx 200)
     directorio: [], 
     cargando: false, 
     hayMasDatos: true,
-    paginaActual: 1,
-    limitePorPagina: 20,
+    
+    // RANGOS Y PÁGINA
+    bloqueActual: 1,
+    tamanoLote: 20,
     capMaximoDOM: 200,
 
     modalAbierto: false, 
@@ -67,7 +65,6 @@ export function comprobantesState() {
     obtenerSujetoAuditado,
     obtenerInsigniaRol,
 
-    // 2. CÁLCULOS REACTIVOS SOBRE LO VISIBLE
     get movimientoFiltradoTotal() {
       return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
     },
@@ -82,7 +79,6 @@ export function comprobantesState() {
       });
     },
 
-    // 3. CICLO DE VIDA E INFINITE SCROLL
     init() {
       this.$nextTick(() => {
         this.resetearYRefrescar();
@@ -102,22 +98,22 @@ export function comprobantesState() {
     async resetearYRefrescar() {
       this.items = [];
       this.todosLosItems = [];
-      this.paginaActual = 1;
+      this.bloqueActual = 1;
       this.hayMasDatos = true;
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 CARGA Y DOSIFICACIÓN CONTROLADA (20 EN 20 -> MÁX 200)
+    // 🟢 PAGINACIÓN PROGRESIVA FLUIDA (20 EN 20 -> MÁX 200)
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
 
       try {
-        // Si no hemos cargado la API aún, traemos los datos del mes
+        // 1. Si no hemos pedido los datos a la API, los traemos todos
         if (this.todosLosItems.length === 0) {
           const params = {
             page: 1,
-            limit: 200, // Solicitamos el cupo máximo al backend
+            limit: 200,
             socio: this.filtroSocio, 
             rol: this.filtroRol,
             fechaInicio: this.filtroFechaInicio, 
@@ -127,55 +123,58 @@ export function comprobantesState() {
           const raw = await fetchComprobantesPaginados(params);
           const lista = Array.isArray(raw) ? raw : (raw?.datos || raw?.comprobantes || []);
 
-          // Mapear el catálogo completo
           this.todosLosItems = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
         }
 
-        // Determinar el siguiente bloque de 20 para el DOM
-        const siguienteFin = this.paginaActual * this.limitePorPagina;
-        const limiteReal = Math.min(siguienteFin, this.capMaximoDOM, this.todosLosItems.length);
+        // 2. Calcular cuántos items mostrar en este paso
+        const objetivo = this.bloqueActual * this.tamanoLote;
+        const limiteFinal = Math.min(objetivo, this.capMaximoDOM, this.todosLosItems.length);
 
-        this.items = this.todosLosItems.slice(0, limiteReal);
-        this.paginaActual++;
+        this.items = this.todosLosItems.slice(0, limiteFinal);
+        this.bloqueActual++;
 
-        // Evaluar fin de scroll
+        // 3. Evaluar si quedan más tarjetas por revelar
         if (this.items.length >= this.capMaximoDOM || this.items.length >= this.todosLosItems.length) {
           this.hayMasDatos = false;
         }
 
       } catch (err) {
-        console.error('❌ Error al cargar página de comprobantes:', err);
+        console.error('❌ Error al cargar comprobantes:', err);
       } finally {
         this.cargando = false;
       }
     },
 
     iniciarObserverScrollInfinito() {
-      const sentinel = document.getElementById('sentinel-scroll');
-      if (!sentinel) return;
+      this.$nextTick(() => {
+        const sentinel = document.getElementById('sentinel-scroll');
+        if (!sentinel) return;
 
-      const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
-          this.cargarSiguientePagina();
-        }
-      }, { rootMargin: '200px' });
+        const observer = new IntersectionObserver((entries) => {
+          if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
+            this.cargarSiguientePagina();
+          }
+        }, { 
+          root: null,
+          rootMargin: '200px', // Carga antes de llegar exactamente al fondo
+          threshold: 0.1 
+        });
 
-      observer.observe(sentinel);
+        observer.observe(sentinel);
+      });
     },
 
     async eliminarComprobante(identificador) {
       if (!identificador) return;
 
-      if (!confirm('¿Confirmas que deseas eliminar este comprobante?')) {
-        return;
-      }
+      if (!confirm('¿Confirmas que deseas eliminar este comprobante?')) return;
 
       const idStr = String(identificador).trim();
 
       try {
         await eliminarComprobantePorHash(idStr);
       } catch (err) {
-        console.error('❌ Error al eliminar en API:', err);
+        console.error('❌ Error al eliminar:', err);
       } finally {
         this.items = this.items.filter(item => String(item.id || item.hash_largo || '') !== idStr);
         this.todosLosItems = this.todosLosItems.filter(item => String(item.id || item.hash_largo || '') !== idStr);
