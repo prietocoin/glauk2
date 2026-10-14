@@ -1,7 +1,7 @@
 <!-- ================================================================= -->
 <!-- COMPONENTE: cardSociosDetalle.ejs                                 -->
 <!-- UBICACIÓN: views/comprobantes/components/                         -->
-<!-- RESPONSABILIDAD: Muestra Socio 1, Socio 2, Badges, Tasas y Montos -->
+<!-- RESPONSABILIDAD: Muestra Socio 1, Socio 2, Polaridad, Tasas y Montos -->
 <!-- ================================================================= -->
 
 <div class="bg-[#030611] rounded-xl border border-blue-900/50 p-2 space-y-1">
@@ -22,12 +22,18 @@
            if (item.moneda_base_socio1) return item.moneda_base_socio1;
            const sObj = (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s1Nombre).trim().toUpperCase());
            return sObj?.moneda_base || sObj?.moneda_socio || sObj?.moneda || 'USDT';
+         },
+         get s1Polaridad() {
+           return item.polaridad_1 || item.grupo_1?.polaridad || '+';
          }
        }">
     
-    <!-- Nombre con Micro-Insignia de Rol -->
+    <!-- Nombre con Micro-Insignia de Rol y Signo de Polaridad -->
     <div class="col-span-4 flex items-center gap-1 min-w-0">
       <span class="text-[10px] shrink-0 select-none" x-text="s1Badge"></span>
+      <span class="font-bold text-[10px] shrink-0 select-none font-mono"
+            :class="s1Polaridad === '+' ? 'text-emerald-400' : 'text-rose-400'"
+            x-text="s1Polaridad"></span>
       <span class="font-black text-cyan-300 uppercase truncate text-[11px]" 
             x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s1Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s1Nombre"></span>
     </div>
@@ -40,7 +46,7 @@
 
     <!-- Volumen y Divisa Socio 1 -->
     <span class="col-span-5 font-mono font-bold text-right truncate text-[11px] text-emerald-400" 
-          x-text="formatMonto(Math.abs(parseFloat(obtenerME1(item)))) + ' ' + s1Moneda"></span>
+          x-text="(s1Polaridad === '-' ? '- ' : '') + formatMonto(Math.abs(parseFloat(obtenerME1(item)))) + ' ' + s1Moneda"></span>
   </div>
   
   <!-- SOCIO 2 (Contraparte - Color Rosa: Render condicional) -->
@@ -60,12 +66,18 @@
              if (item.moneda_base_socio2) return item.moneda_base_socio2;
              const sObj = (directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(this.s2Nombre).trim().toUpperCase());
              return sObj?.moneda_base || sObj?.moneda_socio || sObj?.moneda || 'USDT';
+           },
+           get s2Polaridad() {
+             return item.polaridad_2 || item.grupo_2?.polaridad || '-';
            }
          }">
       
-      <!-- Nombre con Micro-Insignia de Rol -->
+      <!-- Nombre con Micro-Insignia de Rol y Signo de Polaridad -->
       <div class="col-span-4 flex items-center gap-1 min-w-0">
         <span class="text-[10px] shrink-0 select-none" x-text="s2Badge"></span>
+        <span class="font-bold text-[10px] shrink-0 select-none font-mono"
+              :class="s2Polaridad === '+' ? 'text-emerald-400' : 'text-rose-400'"
+              x-text="s2Polaridad"></span>
         <span class="font-black text-pink-300 uppercase truncate text-[11px]" 
               x-text="((directorio || []).find(d => String(d.nombre || '').trim().toUpperCase() === String(s2Nombre).trim().toUpperCase())?.herencia ? '↳ ' : '') + s2Nombre"></span>
       </div>
@@ -78,7 +90,7 @@
 
       <!-- Volumen y Divisa Socio 2 -->
       <span class="col-span-5 font-mono font-bold text-right truncate text-[11px] text-emerald-400" 
-            x-text="formatMonto(Math.abs(parseFloat(obtenerME2(item)))) + ' ' + s2Moneda"></span>
+            x-text="(s2Polaridad === '-' ? '- ' : '') + formatMonto(Math.abs(parseFloat(obtenerME2(item)))) + ' ' + s2Moneda"></span>
     </div>
   </template>
 
