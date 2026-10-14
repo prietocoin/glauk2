@@ -4,7 +4,26 @@
 <!-- RESPONSABILIDAD: Modal fiel al diseño monolítico de Auditoría     -->
 <!-- ================================================================= -->
 
-<div @abrir-modal-edicion.window="if ($event.detail) { itemEdicion = $event.detail; modalAbierto = true; }">
+<div @abrir-modal-edicion.window="
+  if ($event.detail) { 
+    const raw = $event.detail.comprobante || $event.detail;
+    const s1 = raw.nombre_socio_1 || raw.socio_1 || raw.grupo_1?.grupo || 'GENERAL';
+    const s2 = raw.nombre_socio_2 || raw.socio_2 || raw.grupo_2?.grupo || 'GENERAL';
+    
+    itemEdicion = JSON.parse(JSON.stringify({
+      ...raw,
+      nombre_socio_1: s1,
+      socio_1: s1,
+      nombre_socio_2: s2,
+      socio_2: s2,
+      m1_socio: raw.m1_socio ?? raw.monto_1 ?? raw.me1 ?? raw.monto ?? 0,
+      m2_socio: raw.m2_socio ?? raw.monto_2 ?? raw.me2 ?? raw.monto ?? 0,
+      tipo_manual: (raw.tipo_manual || raw.tipo || raw.tipo_op || 'D').toUpperCase(),
+      moneda: (raw.moneda || raw.moneda_local || 'USDT').toUpperCase()
+    }));
+    modalAbierto = true; 
+  }
+">
   <template x-teleport="body">
     <div x-show="modalAbierto" 
          x-transition:enter="transition ease-out duration-200"
@@ -85,8 +104,12 @@
                   <select x-model="itemEdicion.nombre_socio_1" 
                           class="w-full bg-[#080e26] border border-cyan-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
                     <option value="GENERAL">GENERAL</option>
+                    <template x-if="itemEdicion.nombre_socio_1 && itemEdicion.nombre_socio_1 !== 'GENERAL' && !(directorio || []).some(d => (typeof d === 'object' ? d.nombre : d) === itemEdicion.nombre_socio_1)">
+                      <option :value="itemEdicion.nombre_socio_1" x-text="itemEdicion.nombre_socio_1" selected></option>
+                    </template>
                     <template x-for="(s, idx) in (directorio || [])" :key="'ed-s1-' + idx">
                       <option :value="typeof s === 'object' ? (s.nombre || '') : s" 
+                              :selected="(typeof s === 'object' ? s.nombre : s) === itemEdicion.nombre_socio_1"
                               x-text="typeof s === 'object' ? (s.nombre || '') : s"></option>
                     </template>
                   </select>
@@ -96,8 +119,12 @@
                   <select x-model="itemEdicion.nombre_socio_2" 
                           class="w-full bg-[#080e26] border border-pink-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
                     <option value="GENERAL">GENERAL</option>
+                    <template x-if="itemEdicion.nombre_socio_2 && itemEdicion.nombre_socio_2 !== 'GENERAL' && !(directorio || []).some(d => (typeof d === 'object' ? d.nombre : d) === itemEdicion.nombre_socio_2)">
+                      <option :value="itemEdicion.nombre_socio_2" x-text="itemEdicion.nombre_socio_2" selected></option>
+                    </template>
                     <template x-for="(s, idx) in (directorio || [])" :key="'ed-s2-' + idx">
                       <option :value="typeof s === 'object' ? (s.nombre || '') : s" 
+                              :selected="(typeof s === 'object' ? s.nombre : s) === itemEdicion.nombre_socio_2"
                               x-text="typeof s === 'object' ? (s.nombre || '') : s"></option>
                     </template>
                   </select>
@@ -126,7 +153,7 @@
                     <select x-model="itemEdicion.moneda" 
                             class="w-full bg-[#080e26] border border-emerald-500/40 rounded-lg px-2 py-1.5 text-xs text-white font-bold outline-none">
                       <template x-for="m in ['USD','USDT','ECU','VES','COP','PEN','ARS','BRL','CLP','MXN','PYG','BOB','EUR','CAD','GBP']" :key="m">
-                        <option :value="m" x-text="m"></option>
+                        <option :value="m" x-text="m" :selected="m === itemEdicion.moneda"></option>
                       </template>
                     </select>
                   </div>
@@ -192,7 +219,7 @@
                   Cancelar
                 </button>
                 <button type="button" 
-                        @click="typeof guardarEdicionComprobante === 'function' ? guardarEdicionComprobante() : guardarCambios()" 
+                        @click="typeof guardarEdicionComprobante === 'function' ? guardarEdicionComprobante(itemEdicion) : guardarCambios(itemEdicion)" 
                         class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-black shadow-lg shadow-cyan-950/50 transition-all active:scale-95 flex items-center gap-1.5 text-xs cursor-pointer">
                   💾 Guardar & Congelar
                 </button>
