@@ -1,7 +1,7 @@
 /**
  * @file comprobantesLecturaService.js
  * @path public/js/modules/comprobantes/services/comprobantesLecturaService.js
- * @description Servicio atómico de lectura HTTP para PostgreSQL/V2 con mapeo reactivo.
+ * @description Servicio atómico de lectura HTTP para comprobantes_final con mapeo plano reactivo.
  */
 
 export async function obtenerComprobantes(params = {}) {
@@ -29,9 +29,9 @@ export async function obtenerComprobantes(params = {}) {
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     
     const rawData = await response.json();
-    const lista = Array.isArray(rawData) ? rawData : [rawData];
+    const lista = Array.isArray(rawData) ? rawData : (rawData.data || [rawData]);
 
-    // 🟢 MAPEO PLANO: Transforma el payload V2 al contrato que consumen las tarjetas Alpine.js
+    // 🟢 MAPEO DIRECTO DESDE COMPROBANTES_FINAL
     return lista.map((item) => {
       const c = item.comprobante || item;
       const g1 = c.grupo_1 || {};
@@ -39,36 +39,41 @@ export async function obtenerComprobantes(params = {}) {
 
       return {
         ...c,
-        lote_tasa: c.lote,
-        lote_tasa_asignado: c.lote,
+        id: c.hash_largo || c.id,
+        hash_largo: c.hash_largo || c.id,
+        hash_corto: c.hash_corto || (c.hash_largo ? c.hash_largo.substring(0, 8) : ''),
+        lote_tasa: c.lote || c.lote_tasa_asignado,
+        lote_tasa_asignado: c.lote_tasa_asignado || c.lote,
         monto: c.monto,
         moneda: c.moneda,
         banco: c.banco,
         titular: c.titular,
         referencia: c.referencia,
-        tipo_op1: c.tipo,
-        naturaleza: c.tipo,
-        link_img: c.link_img,
+        tipo_op1: c.tipo || c.tipo_manual,
+        naturaleza: c.tipo || c.tipo_manual,
+        link_img: c.url_r2_comprobante || c.link_img,
         
-        // Mapeo Plano Grupo 1
-        nombre_socio_1: g1.nombre_1,
-        socio_1: g1.nombre_1,
-        tasa_1: g1.tasa_1,
-        polaridad_1: g1.polaridad_1,
-        monto_1: g1.monto_1,
-        m1_socio: g1.monto_1,
-        moneda_base_socio1: g1.moneda_base_1,
-        me1: g1.me_1,
+        // Mapeo Plano Grupo 1 (prioriza columna plana de comprobantes_final)
+        nombre_socio_1: c.nombre_socio_1 || c.socio_1 || g1.nombre_1 || g1.grupo,
+        socio_1: c.socio_1 || c.nombre_socio_1 || g1.nombre_1 || g1.grupo,
+        rol_1: c.rol_1 || g1.rol || 'SOCIO',
+        tasa_1: c.tasa_1 ?? g1.tasa_1 ?? g1.tasa ?? 0,
+        polaridad_1: c.polaridad_1 || g1.polaridad_1 || g1.polaridad || '+',
+        monto_1: c.monto_1 ?? c.m1_socio ?? g1.monto_1 ?? g1.monto ?? 0,
+        m1_socio: c.m1_socio ?? c.monto_1 ?? g1.monto_1 ?? g1.monto ?? 0,
+        moneda_base_socio1: c.moneda_base_socio1 || g1.moneda_base_1 || g1.moneda_base || 'USDT',
+        me1: c.me1 ?? g1.me_1 ?? g1.me ?? 0,
 
-        // Mapeo Plano Grupo 2
-        nombre_socio_2: g2.nombre_2,
-        socio_2: g2.nombre_2,
-        tasa_2: g2.tasa_2,
-        polaridad_2: g2.polaridad_2,
-        monto_2: g2.monto_2,
-        m2_socio: g2.monto_2,
-        moneda_base_socio2: g2.moneda_base_2,
-        me2: g2.me_2
+        // Mapeo Plano Grupo 2 (prioriza columna plana de comprobantes_final)
+        nombre_socio_2: c.nombre_socio_2 || c.socio_2 || g2.nombre_2 || g2.grupo,
+        socio_2: c.socio_2 || c.nombre_socio_2 || g2.nombre_2 || g2.grupo,
+        rol_2: c.rol_2 || g2.rol || 'SOCIO',
+        tasa_2: c.tasa_2 ?? g2.tasa_2 ?? g2.tasa ?? 0,
+        polaridad_2: c.polaridad_2 || g2.polaridad_2 || g2.polaridad || '-',
+        monto_2: c.monto_2 ?? c.m2_socio ?? g2.monto_2 ?? g2.monto ?? 0,
+        m2_socio: c.m2_socio ?? c.monto_2 ?? g2.monto_2 ?? g2.monto ?? 0,
+        moneda_base_socio2: c.moneda_base_socio2 || g2.moneda_base_2 || g2.moneda_base || 'USDT',
+        me2: c.me2 ?? g2.me_2 ?? g2.me ?? 0
       };
     });
   } catch (error) {
