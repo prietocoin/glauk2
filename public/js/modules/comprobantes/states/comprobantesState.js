@@ -1,7 +1,7 @@
 /**
  * @file comprobantesState.js
- * @description Estado reactivo Alpine.js con alias retrocompatibles para comprobantes,
- * cortafuegos de 2 socios (x2) y scroll infinito funcional.
+ * @description Estado reactivo de Alpine.js - Glaukapi Dashboard.
+ * Paginación fluida 20 en 20 (máx 200) y cortafuegos atómico 2x.
  */
 
 import { 
@@ -17,7 +17,6 @@ import {
 import { fetchComprobantesPaginados, eliminarComprobantePorHash } from '../services/comprobantesApiService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante, obtenerInsigniaRol } from '../services/comprobantesMapperService.js';
-import { filtrarComprobantesAtómico } from '../services/comprobantesFilterService.js';
 import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/comprobantesSaldosService.js';
 
 function obtenerRangoMesActualCaracas() {
@@ -38,14 +37,13 @@ export function comprobantesState() {
   const { fechaInicio: inicioMes, fechaFin: finMes } = obtenerRangoMesActualCaracas();
 
   const state = {
-    // 1. REGISTROS Y CONTROL
-    todosLosItems: [], // Buffer depurado completo
-    items: [],          // Arreglo visible en DOM (20, 40, 60... máx 200)
+    // 1. ESTADO DE DATOS
+    todosLosItems: [],  // Catálogo completo filtrado desde la API
+    items: [],          // Ítems visibles en el DOM (20, 40, 60... máx 200)
     directorio: [], 
     cargando: false, 
     hayMasDatos: true,
     
-    bloqueActual: 1,
     tamanoLote: 20,
     capMaximoDOM: 200,
 
@@ -66,12 +64,12 @@ export function comprobantesState() {
     obtenerSujetoAuditado,
     obtenerInsigniaRol,
 
-    // 🟢 ALIAS DE COMPATIBILIDAD CRÍTICOS (Previene Alpine Expression Error)
+    // 🟢 ALIAS CRÍTICOS PARA EVITAR 'ReferenceError: comprobantes is not defined' EN PLANTILLAS
     get comprobantes() {
       return this.items;
     },
 
-    // 2. METRICAS REACTIVAS SOBRE TARJETAS VISIBLES
+    // 2. MÉTRICAS REACTIVAS
     get movimientoFiltradoTotal() {
       return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
     },
@@ -86,10 +84,11 @@ export function comprobantesState() {
       });
     },
 
+    // 3. CICLO DE VIDA E INICIALIZACIÓN
     init() {
       this.$nextTick(() => {
         this.resetearYRefrescar();
-        this.iniciarObserverFallback();
+        this.iniciarEscuchadoresScroll();
       });
     },
 
@@ -105,17 +104,18 @@ export function comprobantesState() {
     async resetearYRefrescar() {
       this.items = [];
       this.todosLosItems = [];
-      this.bloqueActual = 1;
       this.hayMasDatos = true;
+      this.cargando = false;
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 CARGA CON CORTAFUEGOS 2X + DOSIFICADOR DE SCROLL (20 EN 20)
+    // 🟢 PAGINACIÓN PROGRESIVA CONTROLADA (20 EN 20 HASTA 200)
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
 
       try {
+        // A) Petición inicial a la API si el buffer está vacío
         if (this.todosLosItems.length === 0) {
           const params = {
             page: 1,
@@ -131,32 +131,34 @@ export function comprobantesState() {
 
           const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-          // CORTAFUEGOS ATÓMICO 2X
-          const depurados2x = filtrarComprobantesAtómico(mapeados, this.directorio, {
-            filtroSocio: this.filtroSocio,
-            filtroFechaInicio: this.filtroFechaInicio,
-            filtroFechaFin: this.filtroFechaFin,
-            filtroHash: this.filtroHash,
-            filtroOrden: this.filtroOrden
-          });
-
-          this.todosLosItems = depurados2x.filter(item => {
+          // Cortafuegos de 2 socios (x2)
+          this.todosLosItems = mapeados.filter(item => {
             const s2 = String(item.nombre_socio_2 || item.socio_2 || item.grupo_2?.grupo || '').toUpperCase().trim();
             const es2xValido = s2 !== '' && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO';
             return item.es_x2 || es2xValido;
           });
         }
 
-        const corteObjetivo = this.bloqueActual * this.tamanoLote;
-        const limiteReal = Math.min(corteObjetivo, this.capMaximoDOM, this.todosLosItems.length);
+        // B) Calcular el siguiente bloque a incorporar en el DOM
+        const cantidadActual = this.items.length;
+        const siguienteCorte = Math.min(
+          cantidadActual + this.tamanoLote,
+          this.capMaximoDOM,
+          this.todosLosItems.length
+        );
 
-        this.items = this.todosLosItems.slice(0, limiteReal);
-        this.bloqueActual++;
+        // Si no hay más que mostrar o llegamos al cap de 200
+        if (siguienteCorte <= cantidadActual || cantidadActual >= this.capMaximoDOM) {
+          this.hayMasDatos = false;
+          return;
+        }
 
+        // Asignación directa
+        this.items = this.todosLosItems.slice(0, siguienteCorte);
+
+        // Evaluar estado final
         if (this.items.length >= this.todosLosItems.length || this.items.length >= this.capMaximoDOM) {
           this.hayMasDatos = false;
-        } else {
-          this.hayMasDatos = true;
         }
 
       } catch (err) {
@@ -166,37 +168,37 @@ export function comprobantesState() {
       }
     },
 
-    // 🟢 DETECTOR INFALIBLE DE SCROLL (CAPTURA DE PROXIMIDAD + POLLING + INTERSECTION OBSERVER)
-    iniciarObserverFallback() {
-      this.$nextTick(() => {
-        const verificarProximidad = () => {
-          if (this.cargando || !this.hayMasDatos) return;
-
-          const sentinel = document.getElementById('sentinel-scroll');
-          if (!sentinel) return;
-
-          const rect = sentinel.getBoundingClientRect();
-          const windowHeight = window.innerHeight || document.documentElement.clientHeight;
-
-          if (rect.top <= windowHeight + 600) {
-            this.cargarSiguientePagina();
-          }
-        };
-
-        document.addEventListener('scroll', verificarProximidad, { capture: true, passive: true });
-        setInterval(verificarProximidad, 400);
+    // 🟢 DETECTOR DE SCROLL ULTRA-ROBUSTO
+    iniciarEscuchadoresScroll() {
+      const evaluarScroll = () => {
+        if (this.cargando || !this.hayMasDatos) return;
 
         const sentinel = document.getElementById('sentinel-scroll');
-        if (sentinel) {
-          const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
-              this.cargarSiguientePagina();
-            }
-          }, { rootMargin: '500px' });
+        if (!sentinel) return;
 
-          observer.observe(sentinel);
+        const rect = sentinel.getBoundingClientRect();
+        const vh = window.innerHeight || document.documentElement.clientHeight;
+
+        // Dispara la carga cuando el centinela esté a menos de 400px de entrar a pantalla
+        if (rect.top <= vh + 400) {
+          this.cargarSiguientePagina();
         }
-      });
+      };
+
+      // Escuchar eventos en fase de captura (atrapa scroll en divs internos)
+      document.addEventListener('scroll', evaluarScroll, { capture: true, passive: true });
+
+      // Respaldo mediante IntersectionObserver
+      const sentinel = document.getElementById('sentinel-scroll');
+      if (sentinel) {
+        const observer = new IntersectionObserver((entries) => {
+          if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
+            this.cargarSiguientePagina();
+          }
+        }, { rootMargin: '300px' });
+
+        observer.observe(sentinel);
+      }
     },
 
     async eliminarComprobante(identificador) {
