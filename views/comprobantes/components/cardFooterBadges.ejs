@@ -45,11 +45,11 @@
       📅 <span x-text="item.fecha_fmt || 'S/F'"></span>
     </div>
 
-    <!-- 2. 🕒 DÍA Y HORA -->
-    <div class="w-full text-center py-0.5 rounded bg-indigo-950/90 text-indigo-300 font-mono text-[8px] sm:text-[9px] font-bold border border-indigo-500/50 shadow truncate px-0.5"
-         title="Día y Hora exacta">
-      🕒 <span x-text="item.hora_fmt || 'S/F'"></span>
-    </div>
+  <!-- 2. 🕒 DÍA Y HORA -->
+<div class="w-full text-center py-0.5 rounded bg-indigo-950/90 text-indigo-300 font-mono text-[8px] sm:text-[9px] font-bold border border-indigo-500/50 shadow truncate px-0.5"
+     title="Día y Hora exacta">
+  🕒 <span x-text="item.dia_hora_humano || item.hora_fmt || 'S/F'"></span>
+</div>
 
     <!-- 3. 🔑 HASH CORTO -->
     <div class="w-full text-center py-0.5 rounded bg-slate-900/90 text-slate-300 font-mono text-[8px] sm:text-[9px] font-bold border border-slate-700/80 truncate px-0.5 shadow flex items-center justify-center gap-1" 
