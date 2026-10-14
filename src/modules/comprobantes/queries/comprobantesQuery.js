@@ -1,21 +1,54 @@
 /**
  * @file comprobantesQuery.js
  * @description Consulta SQL de lectura pura para comprobantes.
+ * Filtrado dinámico por fecha (mes actual), socio y límite ampliado a 500.
  */
 const db = require('#config/database');
 
-async function obtenerComprobantesCompletos(socio = null) {
+function obtenerInicioMesCaracas() {
+  const timeZone = 'America/Caracas';
+  const ahora = new Date();
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
+  
+  // Genera el primer día del mes actual (ej: 2026-10-01 00:00:00)
+  const primerDia = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+  return `${fmt.format(primerDia)} 00:00:00`;
+}
+
+async function obtenerComprobantesCompletos(socio = null, opciones = {}) {
   const params = [];
+  let paramIndex = 1;
+
+  // 1. FILTRO BASE: INSTANCIA JAIRO
   let whereClause = "WHERE UPPER(TRIM(c.instancia)) = 'JAIRO'";
 
+  // 2. FILTRO DE RANGO DE FECHAS (MES ACTUAL POR DEFECTO)
+  const fechaInicioStr = opciones.fechaInicio ? `${opciones.fechaInicio} 00:00:00` : obtenerInicioMesCaracas();
+  whereClause += ` AND c.creado_en >= $${paramIndex}`;
+  params.push(fechaInicioStr);
+  paramIndex++;
+
+  if (opciones.fechaFin) {
+    whereClause += ` AND c.creado_en <= $${paramIndex}`;
+    params.push(`${opciones.fechaFin} 23:59:59`);
+    paramIndex++;
+  }
+
+  // 3. FILTRO DE SOCIO
   if (socio && socio.trim() !== '' && socio !== 'undefined' && socio !== 'null') {
     whereClause += ` AND (
-      LOWER(COALESCE(l.socio_1, n_grupo1.nombre, n_user1.nombre, '')) LIKE LOWER($1) OR
-      LOWER(COALESCE(l.socio_2, n_grupo2.nombre, n_user2.nombre, '')) LIKE LOWER($1) OR
-      LOWER(COALESCE(c.titular, '')) LIKE LOWER($1)
+      LOWER(COALESCE(l.socio_1, n_grupo1.nombre, n_user1.nombre, '')) LIKE LOWER($${paramIndex}) OR
+      LOWER(COALESCE(l.socio_2, n_grupo2.nombre, n_user2.nombre, '')) LIKE LOWER($${paramIndex}) OR
+      LOWER(COALESCE(c.titular, '')) LIKE LOWER($${paramIndex})
     )`;
     params.push(`%${socio.trim()}%`);
+    paramIndex++;
   }
+
+  // 4. LÍMITE DINÁMICO (500 POR DEFECTO)
+  const limitValue = parseInt(opciones.limit, 10) || 500;
+  const limitClause = `LIMIT $${paramIndex}`;
+  params.push(limitValue);
 
   const sql = `
     WITH impactos_ordenados AS (
@@ -64,7 +97,7 @@ async function obtenerComprobantesCompletos(socio = null) {
     LEFT JOIN perfiles_glaukov n_user2 ON i2.usuario_raw IS NOT NULL AND LOWER(TRIM(n_user2.id_grupo)) = LOWER(TRIM(i2.usuario_raw))
     ${whereClause}
     ORDER BY c.creado_en DESC
-    LIMIT 50;
+    ${limitClause};
   `;
 
   const { rows } = await db.query(sql, params);
