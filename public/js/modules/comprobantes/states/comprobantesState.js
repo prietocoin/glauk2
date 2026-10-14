@@ -1,6 +1,7 @@
 /**
  * @file comprobantesState.js
- * Solución definitiva de Infinite Scroll mediante escucha directa de eventos de interacción.
+ * Configuración optimizada: Consulta hasta 500 registros a la API, cap en DOM de 300 ítems,
+ * reactividad garantizada por propagación y cortafuegos atómico 2x.
  */
 
 import { 
@@ -36,6 +37,7 @@ export function comprobantesState() {
   const { fechaInicio: inicioMes, fechaFin: finMes } = obtenerRangoMesActualCaracas();
 
   const state = {
+    // 1. ESTADO DE DATOS Y CAPACIDAD AMPLIADA
     todosLosItems: [],
     items: [],
     directorio: [], 
@@ -43,7 +45,7 @@ export function comprobantesState() {
     hayMasDatos: true,
     
     tamanoLote: 20,
-    capMaximoDOM: 200,
+    capMaximoDOM: 300, // 🟢 Límite ampliado a 300 en pantalla
 
     modalAbierto: false, 
     itemEdicion: null,
@@ -104,7 +106,7 @@ export function comprobantesState() {
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 CARGA INCREMENTAL INFALIBLE
+    // 🟢 CARGA CON CONSULTA AUMENTADA Y REACTIVIDAD EXPLÍCITA
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
@@ -113,7 +115,7 @@ export function comprobantesState() {
         if (this.todosLosItems.length === 0) {
           const params = {
             page: 1,
-            limit: 200,
+            limit: 500, // 🟢 Elevado de 200 a 500 para traer todos los registros nuevos
             socio: this.filtroSocio, 
             rol: this.filtroRol,
             fechaInicio: this.filtroFechaInicio, 
@@ -125,7 +127,7 @@ export function comprobantesState() {
 
           const mapeados = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
 
-          // Cortafuegos atómico de 2 socios
+          // Cortafuegos de 2 socios (x2)
           this.todosLosItems = mapeados.filter(item => {
             const s2 = String(item.nombre_socio_2 || item.socio_2 || item.grupo_2?.grupo || '').toUpperCase().trim();
             const es2xValido = s2 !== '' && s2 !== 'GENERAL' && s2 !== 'NO DEFINIDO';
@@ -139,16 +141,17 @@ export function comprobantesState() {
           return;
         }
 
-        // Calcular nuevo lote (+20)
+        // Calcular siguiente lote (+20)
         const proximoLimite = Math.min(
           this.items.length + this.tamanoLote,
           this.capMaximoDOM,
           this.todosLosItems.length
         );
 
-        this.items = this.todosLosItems.slice(0, proximoLimite);
+        // 🟢 PROPAGACIÓN EXPLÍCITA QUE OBLIGA A ALPINE A RE-RENDERIZAR EN DOM
+        this.items = [...this.todosLosItems.slice(0, proximoLimite)];
 
-        // Evaluar fin
+        // Evaluar si quedan más datos pendientes
         this.hayMasDatos = this.items.length < this.todosLosItems.length && this.items.length < this.capMaximoDOM;
 
       } catch (err) {
@@ -156,12 +159,11 @@ export function comprobantesState() {
       } finally {
         setTimeout(() => {
           this.cargando = false;
-        }, 200);
+        }, 100);
       }
     },
 
-    // 🟢 DISPARADOR DE CARGA POR INTERACCIÓN DIRECTA (RUEDA / TOUCH / SCROLL)
-   // 🟢 DETECTOR DE SCROLL ULTRA-SENSIBLE E INFALIBLE
+    // 🟢 DETECTOR DE SCROLL CON CAPTURA Y SONDEO
     iniciarEscuchadoresScroll() {
       this.$nextTick(() => {
         const intentarCargar = () => {
@@ -173,24 +175,21 @@ export function comprobantesState() {
           const rect = sentinel.getBoundingClientRect();
           const vh = window.innerHeight || document.documentElement.clientHeight;
 
-          // Si el centinela se acerca a menos de 500px del área visible de la pantalla
-          if (rect.top <= vh + 500) {
+          if (rect.top <= vh + 600) {
             this.cargarSiguientePagina();
           }
         };
 
-        // 1. ESCUCHA CAPTURADORA UNIVERSAL (Atrapa el scroll en CUALQUIER div interno)
+        // Escuchadores en fase de captura para contenedores internos
         document.addEventListener('scroll', intentarCargar, { capture: true, passive: true });
         window.addEventListener('scroll', intentarCargar, { passive: true });
-
-        // 2. ESCUCHA DE LA RUEDA DEL MOUSE Y PANTALLA TÁCTIL
         document.addEventListener('wheel', intentarCargar, { capture: true, passive: true });
         document.addEventListener('touchmove', intentarCargar, { capture: true, passive: true });
 
-        // 3. SONDEO ACTIVO (Comprueba la posición del centinela constantemente)
+        // Sondeo activo
         setInterval(intentarCargar, 250);
 
-        // 4. INTERSECTION OBSERVER SOBRE EL VIEWPORT
+        // IntersectionObserver
         const sentinel = document.getElementById('sentinel-scroll');
         if (sentinel) {
           const observer = new IntersectionObserver((entries) => {
@@ -203,6 +202,7 @@ export function comprobantesState() {
         }
       });
     },
+
     async eliminarComprobante(identificador) {
       if (!identificador) return;
 
