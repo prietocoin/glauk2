@@ -1,7 +1,6 @@
 /**
  * @file comprobantesState.js
- * Estado reactivo Alpine.js con filtro automático de Mes en Curso (America/Caracas),
- * Infinite Scroll en lotes de 20 y tope máximo DOM de 200 tarjetas.
+ * @description Estado reactivo Alpine.js corregido con paginación real de 20 en 20 y cap de 200.
  */
 
 import { 
@@ -17,7 +16,6 @@ import {
 import { fetchComprobantesPaginados, eliminarComprobantePorHash } from '../services/comprobantesApiService.js';
 import { crearAccionesModal } from '../services/comprobantesModalActions.js';
 import { prepararEdicionComprobante, obtenerInsigniaRol } from '../services/comprobantesMapperService.js';
-import { filtrarComprobantesAtómico } from '../services/comprobantesFilterService.js';
 import { obtenerSaldoAnteriorSocio, obtenerSujetoAuditado } from '../services/comprobantesSaldosService.js';
 
 /**
@@ -43,8 +41,8 @@ export function comprobantesState() {
 
   const state = {
     // 1. ESTADO REACTIVO Y CONTROLES DE PAGINACIÓN
-    items: [], 
-    comprobantes: [], 
+    todosLosItems: [], // Buffer completo devuelto por la API
+    items: [],          // Ítems visibles renderizados en el DOM (Inicial 20 -> Máx 200)
     directorio: [], 
     cargando: false, 
     hayMasDatos: true,
@@ -58,11 +56,8 @@ export function comprobantesState() {
 
     filtroRol: '', 
     filtroSocio: '', 
-    
-    // 🟢 RANGO AUTOMÁTICO DE MES EN CURSO
     filtroFechaInicio: inicioMes, 
     filtroFechaFin: finMes,
-    
     filtroDesdeHash: '', 
     filtroHastaHash: '', 
     filtroOrden: 'fecha_desc',
@@ -72,7 +67,7 @@ export function comprobantesState() {
     obtenerSujetoAuditado,
     obtenerInsigniaRol,
 
-    // 2. CÁLCULOS REACTIVOS
+    // 2. CÁLCULOS REACTIVOS SOBRE LO VISIBLE
     get movimientoFiltradoTotal() {
       return calcularMovimientoFiltradoTotal(this.items, this.filtroSocio);
     },
@@ -104,61 +99,48 @@ export function comprobantesState() {
       return this.resetearYRefrescar();
     },
 
-    resetearYRefrescar() {
+    async resetearYRefrescar() {
       this.items = [];
-      this.comprobantes = [];
+      this.todosLosItems = [];
       this.paginaActual = 1;
       this.hayMasDatos = true;
       return this.cargarSiguientePagina();
     },
 
-    // 🟢 CARGA PAGINADA EN LOTES DE 20
+    // 🟢 CARGA Y DOSIFICACIÓN CONTROLADA (20 EN 20 -> MÁX 200)
     async cargarSiguientePagina() {
       if (this.cargando || !this.hayMasDatos) return;
       this.cargando = true;
 
-      const params = {
-        page: this.paginaActual,
-        limit: this.limitePorPagina,
-        socio: this.filtroSocio, 
-        rol: this.filtroRol,
-        fechaInicio: this.filtroFechaInicio, 
-        fechaFin: this.filtroFechaFin
-      };
-
       try {
-        const raw = await fetchComprobantesPaginados(params);
-        
-        if (!Array.isArray(raw) || raw.length < this.limitePorPagina) {
-          this.hayMasDatos = false;
+        // Si no hemos cargado la API aún, traemos los datos del mes
+        if (this.todosLosItems.length === 0) {
+          const params = {
+            page: 1,
+            limit: 200, // Solicitamos el cupo máximo al backend
+            socio: this.filtroSocio, 
+            rol: this.filtroRol,
+            fechaInicio: this.filtroFechaInicio, 
+            fechaFin: this.filtroFechaFin
+          };
+
+          const raw = await fetchComprobantesPaginados(params);
+          const lista = Array.isArray(raw) ? raw : (raw?.datos || raw?.comprobantes || []);
+
+          // Mapear el catálogo completo
+          this.todosLosItems = lista.map(item => prepararEdicionComprobante(item, this.loteActivo));
         }
 
-        const mapeados = (Array.isArray(raw) ? raw : []).map(item => prepararEdicionComprobante(item, this.loteActivo));
+        // Determinar el siguiente bloque de 20 para el DOM
+        const siguienteFin = this.paginaActual * this.limitePorPagina;
+        const limiteReal = Math.min(siguienteFin, this.capMaximoDOM, this.todosLosItems.length);
 
-        // Aplica cortafuegos de 2 socios obligatorios (x2) y filtros de fecha
-        const filtrados = filtrarComprobantesAtómico(mapeados, this.directorio, {
-          filtroSocio: this.filtroSocio,
-          filtroFechaInicio: this.filtroFechaInicio,
-          filtroFechaFin: this.filtroFechaFin,
-          filtroHash: this.filtroHash,
-          filtroOrden: this.filtroOrden
-        });
-
-        // Acumular respetando el CAP de 200 elementos
-        let acumulados = [...this.items, ...filtrados];
-        
-        if (acumulados.length >= this.capMaximoDOM) {
-          acumulados = acumulados.slice(0, this.capMaximoDOM);
-          this.hayMasDatos = false;
-        }
-
-        this.items = acumulados;
-        this.comprobantes = acumulados;
+        this.items = this.todosLosItems.slice(0, limiteReal);
         this.paginaActual++;
 
-        if (this.items.length < 10 && this.hayMasDatos) {
-          this.cargando = false;
-          return this.cargarSiguientePagina();
+        // Evaluar fin de scroll
+        if (this.items.length >= this.capMaximoDOM || this.items.length >= this.todosLosItems.length) {
+          this.hayMasDatos = false;
         }
 
       } catch (err) {
@@ -169,14 +151,16 @@ export function comprobantesState() {
     },
 
     iniciarObserverScrollInfinito() {
+      const sentinel = document.getElementById('sentinel-scroll');
+      if (!sentinel) return;
+
       const observer = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && !this.cargando && this.hayMasDatos) {
           this.cargarSiguientePagina();
         }
-      }, { rootMargin: '150px' });
+      }, { rootMargin: '200px' });
 
-      const sentinel = document.getElementById('sentinel-scroll');
-      if (sentinel) observer.observe(sentinel);
+      observer.observe(sentinel);
     },
 
     async eliminarComprobante(identificador) {
@@ -193,16 +177,8 @@ export function comprobantesState() {
       } catch (err) {
         console.error('❌ Error al eliminar en API:', err);
       } finally {
-        this.items = this.items.filter(item => {
-          return (
-            String(item.hash_largo || '') !== idStr &&
-            String(item.hash || '') !== idStr &&
-            String(item.id || '') !== idStr &&
-            String(item._id || '') !== idStr &&
-            String(item.referencia || '') !== idStr
-          );
-        });
-        this.comprobantes = [...this.items];
+        this.items = this.items.filter(item => String(item.id || item.hash_largo || '') !== idStr);
+        this.todosLosItems = this.todosLosItems.filter(item => String(item.id || item.hash_largo || '') !== idStr);
       }
     },
 
