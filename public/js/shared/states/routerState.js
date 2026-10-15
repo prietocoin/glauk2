@@ -5,7 +5,7 @@
 
 export function createRouterState() {
   return {
-    vistaActiva: 'dashboard',
+    vistaActiva: 'comprobante',
     vistaDashboardSubmenu: 'balance',
     loteSeleccionadoInspector: ''
   };
