@@ -5,7 +5,7 @@
 
 export function createRouterState() {
   return {
-    vistaActiva: 'comprobante',
+    vistaActiva: 'comprobantes', // 👈 Vista inicial predeterminada
     vistaDashboardSubmenu: 'balance',
     loteSeleccionadoInspector: ''
   };
