@@ -1,10 +1,10 @@
 <!-- ================================================================= -->
 <!-- COMPONENTE: sidebar.ejs                                           -->
 <!-- UBICACIÓN: views/layout/                                          -->
-<!-- RESPONSABILIDAD: Menú lateral de navegación global                -->
+<!-- RESPONSABILIDAD: Menú lateral de navegación global y Modal de Tasas-->
 <!-- ================================================================= -->
 
-<aside class="w-full md:w-64 bg-[#070e23] border-r border-slate-800 flex flex-col justify-between shrink-0">
+<aside class="w-full md:w-64 bg-[#070e23] border-r border-slate-800 flex flex-col justify-between shrink-0" x-data="{ modalTasas: false }">
   <div class="p-4 space-y-6">
     <!-- LOGO -->
     <div class="flex items-center gap-3">
@@ -27,9 +27,13 @@
         Comprobantes
       </button>
 
-      <button @click="vistaActiva = 'cartelera'" :class="vistaActiva === 'cartelera' ? 'bg-cyan-500/10 text-cyan-400 border-l-2 border-cyan-400' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-r text-sm font-medium transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-        Cartelera Tasas
+      <!-- 🟢 BOTÓN ACTUALIZADO: Abre el Modal Flotante en lugar de cambiar la vista principal -->
+      <button @click="modalTasas = true" class="w-full flex items-center justify-between px-3 py-2.5 rounded-r text-sm font-medium transition text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
+        <div class="flex items-center gap-3">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+          Cartelera Tasas
+        </div>
+        <span class="text-xs text-sky-400 opacity-80 font-normal">↗</span>
       </button>
 
       <button @click="vistaActiva = 'directorio'" :class="vistaActiva === 'directorio' ? 'bg-cyan-500/10 text-cyan-400 border-l-2 border-cyan-400' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-r text-sm font-medium transition">
@@ -44,4 +48,57 @@
       Glauk2 Engine &bull; Online
     </div>
   </div>
+
+  <!-- 🟢 MODAL IFRAME: TasasHub Engine (Se monta dentro del aside globalmente accesible) -->
+  <template x-teleport="body">
+    <div 
+      @keydown.escape.window="modalTasas = false"
+      x-show="modalTasas" 
+      x-cloak
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-[#070b14]/90 backdrop-blur-md p-4">
+      
+      <div 
+        @click.outside="modalTasas = false"
+        class="relative w-full h-[95vh] max-w-[1400px] bg-[#0b1329] border border-cyan-500/40 rounded-xl shadow-2xl flex flex-col overflow-hidden ring-1 ring-cyan-500/10">
+        
+        <!-- Header del Modal -->
+        <div class="flex items-center justify-between px-5 py-3 border-b border-cyan-500/20 bg-slate-900/95 shadow-sm">
+          <div class="flex items-center gap-2">
+            <span class="text-amber-400 drop-shadow-md">⚡</span>
+            <span class="text-sm font-bold text-slate-100 tracking-wide">TasasHub Engine</span>
+            <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20 ml-2">LIVE</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <a 
+              href="https://tasas.jairokov.com" 
+              target="_blank" 
+              class="text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1">
+              Abrir en pestaña ↗
+            </a>
+            <button 
+              @click="modalTasas = false"
+              class="text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 hover:shadow-lg text-xs font-bold transition-all border border-slate-700/50">
+              ✕ ESC
+            </button>
+          </div>
+        </div>
+
+        <!-- Iframe con el microservicio -->
+        <div class="flex-1 w-full h-full bg-[#050811] relative">
+          <!-- Indicador de Carga -->
+          <div class="absolute inset-0 flex items-center justify-center pointer-events-none" x-show="modalTasas">
+            <div class="animate-pulse text-cyan-500/50 text-sm font-semibold tracking-widest">Iniciando TasasHub...</div>
+          </div>
+          
+          <template x-if="modalTasas">
+            <iframe 
+              src="https://tasas.jairokov.com?embed=true" 
+              class="absolute inset-0 w-full h-full border-0 z-10 rounded-b-xl"
+              loading="lazy">
+            </iframe>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
 </aside>
