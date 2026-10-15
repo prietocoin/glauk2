@@ -1,6 +1,6 @@
 /**
  * @file comprobantesQuery.js
- * @description Consulta directa a la Single Source of Truth asegurando renderizado 2x.
+ * @description Consulta directa a la Single Source of Truth comprobantes_final.
  */
 const db = require('#config/database');
 
@@ -16,31 +16,32 @@ async function obtenerComprobantesFinalPaginados(filtros = {}) {
   let whereClauses = ['1=1'];
   let params = [];
 
+  // 🟢 1. Filtro de Socio usando las columnas reales de la tabla
   if (socio && socio.toUpperCase() !== 'GENERAL' && socio.toUpperCase() !== 'TODOS') {
     params.push(`%${socio.toLowerCase()}%`);
     whereClauses.push(`(
-      LOWER(COALESCE(nombre_socio_1, '')) LIKE $${params.length} 
-      OR LOWER(COALESCE(nombre_socio_2, '')) LIKE $${params.length}
-      OR LOWER(COALESCE(socio_1, '')) LIKE $${params.length}
-      OR LOWER(COALESCE(socio_2, '')) LIKE $${params.length}
+      LOWER(COALESCE(nombre_socio_1, socio_1, '')) LIKE $${params.length} 
+      OR LOWER(COALESCE(nombre_socio_2, socio_2, '')) LIKE $${params.length}
     )`);
   }
 
+  // 🟢 2. Filtro de Fechas nativo contra fecha_fmt (tipo DATE)
   if (fechaInicio) {
-    params.push(`${fechaInicio} 00:00:00`);
-    whereClauses.push(`fecha_hora_input >= $${params.length}`);
+    params.push(fechaInicio);
+    whereClauses.push(`fecha_fmt >= $${params.length}`);
   }
 
   if (fechaFin) {
-    params.push(`${fechaFin} 23:59:59`);
-    whereClauses.push(`fecha_hora_input <= $${params.length}`);
+    params.push(fechaFin);
+    whereClauses.push(`fecha_fmt <= $${params.length}`);
   }
 
+  // 🟢 3. Consulta directa y orden por timestamp ISO real
   const query = `
     SELECT *
     FROM comprobantes_final
     WHERE ${whereClauses.join(' AND ')}
-    ORDER BY fecha_hora_input DESC NULLS LAST
+    ORDER BY fecha_hora_iso DESC NULLS LAST
     LIMIT $${params.length + 1} OFFSET $${params.length + 2};
   `;
 
