@@ -1,85 +1,54 @@
 /**
- * @file comprobantesController.js
- * @description Controlador HTTP orquestador modular para el CRUD de comprobantes_final.
+ * @file comprobantesQuery.js
+ * @description Consulta directa a la Single Source of Truth comprobantes_final.
  */
-const { obtenerComprobantesFinalPaginados } = require('../queries/comprobantesQuery'); // 👈 Aquí estaba el error
-const { eliminarComprobante } = require('../services/comprobantesBorradoService');
-const { releerIA } = require('../services/comprobantesIaService');
-const { liquidarComprobante, actualizarComprobante } = require('../services/comprobantesSnapshotService');
+const db = require('#config/database');
 
-/**
- * 🟢 Lectura principal invocando la capa Query aislada
- */
-async function getComprobantes(req, res) {
-  try {
-    const { 
-      socio = '', 
-      limit = 50, 
-      page = 1, 
-      fechaInicio = '', 
-      fechaFin = '', 
-      fecha_inicio = '', 
-      fecha_fin = '' 
-    } = req.query;
+async function obtenerComprobantesFinalPaginados(filtros = {}) {
+  const page = parseInt(filtros.page, 10) || 1;
+  const limit = parseInt(filtros.limit, 10) || 50;
+  const offset = (page - 1) * limit;
 
-    const rows = await obtenerComprobantesFinalPaginados({
-      socio,
-      limit: parseInt(limit, 10) || 50,
-      page: parseInt(page, 10) || 1,
-      fechaInicio: fechaInicio || fecha_inicio,
-      fechaFin: fechaFin || fecha_fin
-    });
+  const socio = String(filtros.socio || '').trim();
+  const fechaInicio = String(filtros.fechaInicio || filtros.fecha_inicio || '').trim();
+  const fechaFin = String(filtros.fechaFin || filtros.fecha_fin || '').trim();
 
-    return res.status(200).json(rows);
-  } catch (err) {
-    console.error('❌ [comprobantesController Error]:', err.message);
-    return res.status(500).json({ error: err.message }); // 👈 Ya no se ocultan errores como []
+  let whereClauses = ['1=1'];
+  let params = [];
+
+  // 🟢 1. Filtro de Socio usando las columnas reales de la tabla
+  if (socio && socio.toUpperCase() !== 'GENERAL' && socio.toUpperCase() !== 'TODOS') {
+    params.push(`%${socio.toLowerCase()}%`);
+    whereClauses.push(`(
+      LOWER(COALESCE(nombre_socio_1, socio_1, '')) LIKE $${params.length} 
+      OR LOWER(COALESCE(nombre_socio_2, socio_2, '')) LIKE $${params.length}
+    )`);
   }
+
+  // 🟢 2. Filtro de Fechas nativo contra fecha_fmt (tipo DATE)
+  if (fechaInicio) {
+    params.push(fechaInicio);
+    whereClauses.push(`fecha_fmt >= $${params.length}`);
+  }
+
+  if (fechaFin) {
+    params.push(fechaFin);
+    whereClauses.push(`fecha_fmt <= $${params.length}`);
+  }
+
+  // 🟢 3. Consulta directa y orden por timestamp ISO real
+  const query = `
+    SELECT *
+    FROM comprobantes_final
+    WHERE ${whereClauses.join(' AND ')}
+    ORDER BY fecha_hora_iso DESC NULLS LAST
+    LIMIT $${params.length + 1} OFFSET $${params.length + 2};
+  `;
+
+  params.push(limit, offset);
+
+  const { rows } = await db.query(query, params);
+  return rows;
 }
 
-async function liquidarComprobanteHandler(req, res) {
-  try {
-    const result = await liquidarComprobante(req.body);
-    return res.json({ success: true, message: 'Liquidación congelada con éxito', ...result });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-}
-
-async function releerIAHandler(req, res) {
-  try {
-    const hash = req.params.hashLargo || req.body.hash_largo;
-    const result = await releerIA(hash);
-    return res.json(result);
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-}
-
-async function updateComprobanteHandler(req, res) {
-  try {
-    const hash = req.params.hashLargo || req.body.hash_largo;
-    const result = await actualizarComprobante(hash, req.body);
-    return res.json(result);
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-}
-
-async function deleteComprobanteHandler(req, res) {
-  try {
-    const hash = req.params.hashLargo;
-    const result = await eliminarComprobante(hash);
-    return res.json(result);
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-}
-
-module.exports = {
-  getComprobantes,
-  liquidarComprobante: liquidarComprobanteHandler,
-  releerIA: releerIAHandler,
-  updateComprobante: updateComprobanteHandler,
-  deleteComprobante: deleteComprobanteHandler
-};
+module.exports = { obtenerComprobantesFinalPaginados };
